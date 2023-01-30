@@ -11,31 +11,32 @@ MODULES     :=
 $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE)) :=)
 
 # Defaults
-USE_ZLIB       ?= 1
-USE_TREMOR     ?= 0
-USE_VORBIS     ?= 1
-USE_FLAC       ?= 1
-USE_MAD        ?= 1
-USE_FAAD       ?= 1
-USE_PNG        ?= 1
-USE_JPEG       ?= 1
-USE_THEORADEC  ?= 1
-USE_FREETYPE2  ?= 1
-HAVE_MT32EMU   ?= 1
-USE_FLUIDSYNTH ?= 1
-USE_LUA        ?= 1
-USE_LIBCO      ?= 1
-LOAD_RULES_MK   = 1
-USE_TINYGL     ?= 1
-USE_BINK       ?= 1
-POSIX          ?= 1
-NO_HIGH_DEF    ?= 0
-NO_WIP         ?= 1
-USE_LIBCO      ?= 1
-ENABLE_VKEYBD   = 1
-USE_CLOUD      ?= 0
-STATIC_LINKING ?= 0
-LITE           ?= 0
+USE_ZLIB         ?= 1
+USE_TREMOR       ?= 0
+USE_VORBIS       ?= 1
+USE_FLAC         ?= 1
+USE_MAD          ?= 1
+USE_FAAD         ?= 1
+USE_PNG          ?= 1
+USE_JPEG         ?= 1
+USE_THEORADEC    ?= 1
+USE_FREETYPE2    ?= 1
+HAVE_MT32EMU     ?= 1
+USE_FLUIDSYNTH   ?= 1
+USE_LUA          ?= 1
+USE_LIBCO        ?= 1
+LOAD_RULES_MK     = 1
+USE_TINYGL       ?= 1
+USE_BINK         ?= 1
+POSIX            ?= 1
+NO_HIGH_DEF      ?= 0
+NO_WIP           ?= 1
+USE_LIBCO        ?= 1
+ENABLE_VKEYBD     = 1
+USE_CLOUD        ?= 0
+STATIC_LINKING   ?= 0
+LITE             ?= 0
+USE_SYSTEM_LIBS  ?= 0
 
 DEBUG_ALLOW_DIRTY_SUBMODULES ?= 0
 
@@ -65,6 +66,7 @@ CORE_EXTENSIONS = "scummvm"
 INCLUDES += -I$(SCUMMVM_PATH)
 DEFINES  += -D__LIBRETRO__ -DNONSTANDARD_PORT -DUSE_RGB_COLOR -DUSE_OSD -DDISABLE_TEXT_CONSOLE -DFRONTEND_SUPPORTS_RGB565 -DUSE_TRANSLATION -DDETECTION_STATIC -DHAVE_CONFIG_H -DUSE_BINK -DUSE_LUA -DUSE_TINYGL -DENABLE_VKEYBD
 DEFINES  += -DCORE_NAME=\"$(CORE_NAME)\" -DCORE_EXTENSIONS=\"$(CORE_EXTENSIONS)\"
+CXXFLAGS += -Wno-long-long -Wno-multichar -Wno-unknown-pragmas -Wno-reorder
 
 ifeq ($(USE_LIBCO), 1)
    DEFINES += -DUSE_LIBCO
