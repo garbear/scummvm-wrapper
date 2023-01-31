@@ -2,8 +2,7 @@
 # Common settings and functions
 ######################################################################
 
-HASH := \#
-
+# Submodules functions
 DEPS_PATH                   := $(ROOT_PATH)/deps
 DEPS_SUBMODULES             := libretro-deps libretro-common
 
@@ -15,21 +14,33 @@ DEPS_FOLDER_libretro-common := libretro-common
 DEPS_URL_libretro-common    := https://github.com/libretro/libretro-common
 DEPS_COMMIT_libretro-common := 458bcd842bc48f730e12732fe8b3280e834d45ff
 
-test_cc = '$(HASH)include <$(this_lib_subpath)$(this_lib_header)>\nint main(){return 0;}'
-get_include_path = $(shell printf $(test_cc) | $(CC) -E -Wp,-v - 2>/dev/null | grep "$(this_lib_subpath)$(this_lib_header)" | cut -d \" -f 2 | sed "s|/$(this_lib_header)||")
-this_lib_includes = $(if $(this_lib_subpath),-I$(call get_include_path))
-is_lib_available = $(if $(shell result=$$(printf $(test_cc) | $(CC) -xc -Wall -O -o /dev/null $(this_lib_flags) $(this_lib_includes) - > /dev/null 2>&1 ; printf $$?) ;  { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),no,yes)
-check_submodule  = $(if $(shell result=$$($(SCRIPTS_PATH)/configure_submodules.sh $(DEPS_URL_$(1)) $(DEPS_COMMIT_$(1)) $(DEPS_PATH) $(DEBUG_ALLOW_DIRTY_SUBMODULES) $(DEPS_FOLDER_$(1))) ; { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),$(1))
-system_lib_message = $(info Using system $(shell printf ' $(this_lib_flags)' | sed "s|.*-l||;s| .*||"): $(this_lib_available))
-
-ifeq (,$(filter clean datafiles coreinfo,$(MAKECMDGOALS)))
+submodule_test  = $(if $(shell result=$$($(SCRIPTS_PATH)/configure_submodules.sh $(DEPS_URL_$(1)) $(DEPS_COMMIT_$(1)) $(DEPS_PATH) $(DEBUG_ALLOW_DIRTY_SUBMODULES) $(DEPS_FOLDER_$(1))) ; { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),$(1))
 $(info Configuring submodules...)
-
-SUBMODULE_FAILED = $(strip $(foreach SUBMODULE,$(DEPS_SUBMODULES),$(call check_submodule,$(SUBMODULE))))
-
+SUBMODULE_FAILED = $(strip $(foreach SUBMODULE,$(DEPS_SUBMODULES),$(call submodule_test,$(SUBMODULE))))
 ifneq ($(SUBMODULE_FAILED),)
    $(error Configuration of following submodules failed: $(SUBMODULE_FAILED))
+else
+   $(info - Submodules configured)
 endif
+
+# Shared libs functions
+sharedlibs_test_cc            = '\#include <$(this_lib_subpath)$(this_lib_header)>\nint main(){return 0;}'
+sharedlibs_get_include_path   = $(shell printf $(sharedlibs_test_cc) | $(CC) -E -Wp,-v - 2>/dev/null | grep "$(this_lib_subpath)$(this_lib_header)" | cut -d \" -f 2 | sed "s|/$(this_lib_header)||")
+sharedlibs_this_lib_includes  = $(if $(this_lib_subpath),-I$(call sharedlibs_get_include_path))
+sharedlibs_is_lib_available   = $(if $(shell result=$$(printf $(sharedlibs_test_cc) | $(CC) -xc -Wall -O -o /dev/null $(this_lib_flags) $(sharedlibs_this_lib_includes) - > /dev/null 2>&1 ; printf $$?) ;  { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),no,yes)
+sharedlibs_system_lib_message = $(info - Use system shared $(shell printf ' $(this_lib_flags)' | sed "s|.*-l||;s| .*||"): $(this_lib_available))
+
+define  sharedlibs_test =
+this_lib_available := no
+ifeq ($(USE_SYSTEM_LIBS), 1)
+this_lib_available := $(call sharedlibs_is_lib_available)
+endif
+$$(call sharedlibs_system_lib_message)
+ifeq ($$(this_lib_available), yes)
+LDFLAGS += $(this_lib_flags)
+INCLUDES += $(sharedlibs_this_lib_includes)
+endif
+endef
 
 ######################################################################
 #  libretro-common settings
@@ -66,18 +77,11 @@ endif
 
 ifeq ($(USE_FLUIDSYNTH), 1)
 DEFINES += -DUSE_FLUIDSYNTH
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := fluidsynth.h
 this_lib_flags := -lfluidsynth
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 DEFINES += -DUSE_FLUIDLITE
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/fluidsynth/include \
 	-I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/fluidsynth/src \
@@ -108,18 +112,11 @@ endif
 
 ifeq ($(USE_FLAC), 1)
 DEFINES += -DUSE_FLAC
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := FLAC/format.h
 this_lib_flags := -lFLAC
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(system_fluidsynth), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libFLAC/include
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libFLAC/bitreader.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libFLAC/cpu.o \
@@ -145,18 +142,11 @@ endif
 
 ifeq ($(USE_VORBIS), 1)
 DEFINES += -DUSE_VORBIS
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := vorbis/codec.h
 this_lib_flags := -lvorbis
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libogg/include \
 	-I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libvorbis/include \
 	-I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libvorbis/lib
@@ -193,18 +183,11 @@ endif
 
 ifeq ($(USE_TREMOR), 1)
 DEFINES += -DUSE_TREMOR -DUSE_VORBIS
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := tremor/ivorbiscodec.h
 this_lib_flags := -ltremor
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/tremor/bitwise.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/tremor/block.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/tremor/codebook.o \
@@ -229,18 +212,11 @@ endif
 
 ifeq ($(USE_ZLIB), 1)
 DEFINES += -DUSE_ZLIB  -DWANT_ZLIB
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := zlib.h
 this_lib_flags := -lz
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libz/deflate.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libz/gzlib.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libz/uncompr.o \
@@ -265,18 +241,11 @@ endif
 
 ifeq ($(USE_MAD), 1)
 DEFINES += -DUSE_MAD -DFPM_DEFAULT
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := mad.h
 this_lib_flags := -lmad
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libmad
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libmad/bit.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libmad/decoder.o \
@@ -296,18 +265,11 @@ endif
 
 ifeq ($(USE_FAAD), 1)
 DEFINES += -DUSE_FAAD
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := faad.h
 this_lib_flags := -lfaad
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libfaad/include -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libfaad/libfaad
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libfaad/libfaad/bits.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libfaad/libfaad/cfft.o \
@@ -352,18 +314,11 @@ endif
 
 ifeq ($(USE_PNG), 1)
 DEFINES += -DUSE_PNG
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := png.h
 this_lib_flags := -lpng
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libpng
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libpng/png.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libpng/pngerror.o \
@@ -389,18 +344,11 @@ endif
 
 ifeq ($(USE_JPEG), 1)
 DEFINES += -DUSE_JPEG -DJDCT_DEFAULT=JDCT_IFAST
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := jerror.h
 this_lib_flags := -ljpeg
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libjpeg
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libjpeg/jaricom.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/libjpeg/jcapimin.o \
@@ -457,18 +405,11 @@ endif
 
 ifeq ($(USE_THEORADEC), 1)
 DEFINES += -DUSE_THEORADEC
-this_lib_available := no
 this_lib_subpath :=
 this_lib_header := theora/theoradec.h
 this_lib_flags := -ltheora
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/theora/include
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/theora/lib/bitpack.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/theora/lib/decinfo.o \
@@ -493,19 +434,12 @@ endif
 
 ifeq ($(USE_FREETYPE2), 1)
 DEFINES += -DUSE_FREETYPE2
-this_lib_available := no
 # ft2build.h is included in scummvm sources, while freetype2/ft2build.h is available in includes path
 this_lib_subpath := freetype2/
 this_lib_header := ft2build.h
 this_lib_flags := -lfreetype
-ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
-endif
-$(call system_lib_message)
-ifeq ($(this_lib_available), yes)
-	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
-else
+$(eval $(call sharedlibs_test))
+ifneq ($(this_lib_available), yes)
 DEFINES += -DFT2_BUILD_LIBRARY
 INCLUDES += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/freetype/include
 OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)/freetype/src/autofit/afangles.o \
@@ -631,17 +565,15 @@ this_lib_header := curl/curl.h
 this_lib_flags := -lcurl
 # No baked-in solution in libretro-deps, shared lib is the only option at this time
 # ifeq ($(USE_SYSTEM_LIBS), 1)
-this_lib_available := $(call is_lib_available)
+this_lib_available := $(call sharedlibs_is_lib_available)
 # endif
-$(call system_lib_message)
+$(call sharedlibs_system_lib_message)
 ifeq ($(this_lib_available), yes)
 	LDFLAGS += $(this_lib_flags)
-	INCLUDES += $(this_lib_includes)
+	INCLUDES += $(sharedlibs_this_lib_includes)
 	USE_LIBCURL := 1
 	DEFINES += -DUSE_CLOUD -DUSE_LIBCURL
 else
 $(info System libcurl not available, dropping cloud feature.)
 endif
 endif
-
-endif # ifeq (,$(filter clean datafiles coreinfo,$(MAKECMDGOALS)))
