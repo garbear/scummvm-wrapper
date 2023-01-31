@@ -82,7 +82,7 @@ fi
 # Test LITE
 if [ $6 -eq 1 ] ; then
 	cp "${BUILD_PATH}"/lite_engines.list "${BUILD_PATH}"/config.mk.engines.lite
-	sed -i.bak -e "y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/;s/^/ENABLE_/g;s/$/ = STATIC_PLUGIN/g" "${BUILD_PATH}"/config.mk.engines.lite
+	sed -i.bak -e "y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/" -e "s/^/ENABLE_/g;s/$/ = STATIC_PLUGIN/g" "${BUILD_PATH}"/config.mk.engines.lite
 	rm "${BUILD_PATH}"/config.mk.engines.lite.bak
 fi
 
