@@ -180,7 +180,7 @@ else ifeq ($(platform), ctr)
    USE_VORBIS = 0
    USE_THEORADEC = 0
    USE_TREMOR = 1
-   HAVE_MT32EMU = 0
+   USE_MT32EMU = 0
    STATIC_LINKING = 1
 
 # Vita
@@ -210,7 +210,7 @@ else ifeq ($(platform), gcw0)
    USE_TREMOR = 1
    USE_LIBCO  = 0
    USE_CURL = 0
-   HAVE_MT32EMU = 0
+   USE_MT32EMU = 0
    NO_HIGH_DEF := 1
 
 # MIYOO
@@ -229,7 +229,7 @@ else ifeq ($(platform), miyoo)
    USE_TREMOR = 1
    USE_LIBCO  = 0
    USE_CURL = 0
-   HAVE_MT32EMU = 0
+   USE_MT32EMU = 0
    NO_HIGH_DEF := 1
 
 # MIYOOMINI
@@ -247,7 +247,7 @@ else ifeq ($(platform), miyoomini)
    USE_THEORADEC = 0
    USE_TREMOR = 1
    USE_LIBCO  = 0
-   HAVE_MT32EMU = 0
+   USE_MT32EMU = 0
    NO_HIGH_DEF = 0
 
 # ARM v7
@@ -258,7 +258,7 @@ else ifneq (,$(findstring armv7,$(platform)))
    USE_VORBIS = 0
    USE_THEORADEC = 0
    USE_TREMOR = 1
-   HAVE_MT32EMU = 0
+   USE_MT32EMU = 0
    CXXFLAGS := -std=c++11
 ifneq (,$(findstring cortexa8,$(platform)))
    DEFINES += -marm -mcpu=cortex-a8
@@ -291,7 +291,7 @@ else ifneq (,$(findstring oga_a35_neon_hardfloat,$(platform)))
    USE_VORBIS = 0
    USE_THEORADEC = 0
    USE_TREMOR = 1
-   HAVE_MT32EMU = 0
+   USE_MT32EMU = 0
    HAVE_NEON = 1
 
 # Emscripten
@@ -613,6 +613,7 @@ clean:
 	$(HIDE)$(RM_REC) libtemp $(MODULES)
 	$(HIDE)$(RM) libnx-ln
 	$(HIDE)$(RM) scummvm.zip  $(TARGET_NAME)_libretro.info script.mri config.mk.engines.lite ScummVM.dat
+	$(HIDE)$(RM) $(ROOT_PATH)/shared_modules.mk
 
 # Include the dependency tracking files.
 -include $(wildcard $(addsuffix /*.d,$(DEPDIRS)))
