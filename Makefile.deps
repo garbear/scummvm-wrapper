@@ -193,6 +193,7 @@ endif
 
 ifeq ($(USE_TREMOR), 1)
 DEFINES += -DUSE_TREMOR -DUSE_VORBIS
+INCLUDES  += -I$(DEPS_PATH)/$(DEPS_FOLDER_libretro-deps)
 this_lib_available := no
 this_lib_subpath :=
 this_lib_header := tremor/ivorbiscodec.h
