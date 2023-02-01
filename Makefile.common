@@ -21,7 +21,7 @@ USE_PNG          ?= 1
 USE_JPEG         ?= 1
 USE_THEORADEC    ?= 1
 USE_FREETYPE2    ?= 1
-USE_MT32EMU      ?= 1
+HAVE_MT32EMU     ?= 1
 USE_FLUIDSYNTH   ?= 1
 USE_LUA          ?= 1
 USE_LIBCO        ?= 1
@@ -46,8 +46,6 @@ CORE_PATH            := $(ROOT_PATH)/src
 SCRIPTS_PATH         := $(ROOT_PATH)/scripts
 srcdir               := $(SCUMMVM_PATH)
 VPATH                := $(SCUMMVM_PATH)
-UP_COMMON_MAKE       := $(SCUMMVM_PATH)/Makefile.common
-SHARED_MOD_MAKE      := $(ROOT_PATH)/shared_modules.mk
 
 # Core version shown in frontend
 GIT_TAG := $(shell cd $(ROOT_PATH) 2>/dev/null && git describe --tags 2>/dev/null)
@@ -144,17 +142,22 @@ endif
 
 -include $(SCUMMVM_PATH)/engines/engines.mk
 
+# Shared modules
+SHARED_MODULES := \
+	engines \
+	gui \
+	backends \
+	video \
+	image \
+	graphics \
+	audio \
+	math \
+	common
+
 ifeq ($(HAVE_MT32EMU),1)
+   SHARED_MODULES += audio/softsynth/mt32
    INCLUDES    += -I$(SCUMMVM_PATH)/audio/softsynth/mt32/sha1
    DEFINES += -DUSE_MT32EMU
-endif
-
-# Retrieve shared modules definitions from main Makefile.common
-RETRIEVED_SHARED_MODULES := $(shell sed -e ':a' -e 'N' -e '$$!ba' -e 's/\n/§/g' -e 's|.*-include engines/engines.mk||' -e 's/\#\#\#.*//' -e 's/§/\n/g' -e 's|MODULES|SHARED_MODULES|g' $(UP_COMMON_MAKE) > $(SHARED_MOD_MAKE) && printf ok || printf error)
-ifeq ($(RETRIEVED_SHARED_MODULES), ok)
-   include $(SHARED_MOD_MAKE)
-else
-   $(error Error retrieving shared modules definitions from main Makefile.common)
 endif
 
 MODULES += $(SHARED_MODULES)
