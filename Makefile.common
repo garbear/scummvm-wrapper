@@ -99,7 +99,10 @@ OBJS += $(LIBRETRO_OBJS)
 # External dependencies settings
 ######################################################################
 
-include $(ROOT_PATH)/Makefile.deps
+ifeq (,$(filter datafiles coreinfo,$(MAKECMDGOALS)))
+$(info Configuring dependencies...)
+include $(ROOT_PATH)/dependencies.mk
+endif
 
 ######################################################################
 # Module settings
@@ -122,11 +125,12 @@ endif
 # or (if static linking is required)
 # - generates config.mk.engines.lite - static file with a reduced set of engines for minimal builds - from lite_engines.list
 # - generates script.mri engines part
-
 ifeq (,$(filter clean datafiles coreinfo,$(MAKECMDGOALS)))
 $(info Configuring ScummVM engines...)
 ifneq ($(shell cd $(SCRIPTS_PATH); ./configure_engines.sh $(ROOT_PATH) $(SCUMMVM_PATH) $(NO_HIGH_DEF) $(NO_WIP) $(STATIC_LINKING) $(LITE)),0)
    $(error Configuring ScummVM engines failed)
+else
+   $(info - ScummVM engines configured)
 endif
 endif
 
