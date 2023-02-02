@@ -1,5 +1,5 @@
 this_lib_available := no
-ifeq ($(USE_SYSTEM_LIBS), 1)
+ifeq ($(USE_SYSTEM_$(shell printf ' $(this_lib_flags)' | sed "s|.*-l||;s| .*||")), 1)
 this_lib_available := $(call sharedlibs_is_lib_available)
 endif
 $(call sharedlibs_system_lib_message)
