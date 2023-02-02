@@ -103,7 +103,7 @@ if [ ! $3 = "bundle" ]; then
 
 # Update from libretro ScummVM.dat
 wget -NO "$BUILD_PATH"/ScummVM.dat https://raw.githubusercontent.com/libretro/libretro-database/master/dat/ScummVM.dat
-[ -f "$BUILD_PATH"/ScummVM.dat ] && SUPPORTED_EXTENSIONS="$(cat $BUILD_PATH/ScummVM.dat | grep 'rom (' | sed 's/\" .*//g;s/.*\.//g' | sort -u | tr '\n' '|')" || SUPPORTED_EXTENSIONS="$ALLOWED_EXT"
+[ -f "$BUILD_PATH"/ScummVM.dat ] && SUPPORTED_EXTENSIONS="$(cat $BUILD_PATH/ScummVM.dat | grep 'rom (' | sed -e 's/\" .*//g' -e 's/.*\.//g' | sort -u | tr '\n' '|')" || SUPPORTED_EXTENSIONS="$ALLOWED_EXT"
 
 	# Create core.info file
 	set +e
