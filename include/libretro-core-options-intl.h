@@ -67,7 +67,67 @@ extern "C" {
 /* RETRO_LANGUAGE_GERMAN */
 
 /* RETRO_LANGUAGE_ITALIAN */
-
+struct retro_core_option_definition option_defs_it[] = {
+	{
+		"scummvm_gamepad_cursor_speed",
+		"Velocità del cursore con gamepad",
+		"Moltiplicatore per la velocità del cursore del mouse quando si usa la leva analogica sinistra o il D-Pad del RetroPad. Il valore di default di '1.0' è ottimizzato per i giochi con risoluzione nativa di '320x200' o '320x240'. Per i giochi ad 'alta definizione' con risoluzione di '640x400' or '640x480', si raccomanda il valore di '2.0'",
+		{
+			{NULL, NULL},
+		},
+		NULL
+	},
+	{
+		"scummvm_gamepad_cursor_acceleration_time",
+		"Accelerazione del cursore con gamepad",
+		"Il tempo (in secondi) necessario al cursore del mouse per raggiungere la piena velocità quando si usa la leva analogica sinistra o il D-Pad del RetroPad.",
+		{
+			{NULL, NULL},
+		},
+		NULL
+	},
+	{
+		"scummvm_analog_response",
+		"Risposta analogica del cursore con gamepad",
+		"Modalità di risposta della velocità del cursore del mouse allo spostamento della leva analogica sinistra del RetroPad. 'Lineare': La velocità è direttamente proporzionale allo spostamento della leva. Questa è l'impostazione di default adatta alla maggior parte degli utenti. 'Quadratica': La velocità aumenta con il quadrato dello spostamento della leva. Questo permette maggior precisione nei piccoli movimenti senza sacrificare il raggiungimento della velocità massima a spostamento completo. Questa modalità può richiedere pratica per un uso efficace.",
+		{
+			{"linear", "Lineare"},
+			{"quadratic", "Quadratica"},
+			{NULL, NULL},
+		},
+		NULL
+	},
+	{
+		"scummvm_analog_deadzone",
+		"Zona morta analogica (percentuale)",
+		"Zona morta della leva analogica sinistra del RetroPad. Può essere usata per eliminare scorrimenti indesiderati del cursore.",
+		{
+			{NULL, NULL},
+		},
+		NULL
+	},
+	{
+		"scummvm_mouse_speed",
+		"Velocità del mouse",
+		"Sets the mouse cursor speed multiplier when moving the cursor with the RetroMouse.",
+		{
+			{NULL, NULL},
+		},
+		NULL
+	},
+	{
+		"scummvm_speed_hack",
+		"Speed Hack (riavvio necessario)",
+		"Modalità che riduce significativamente le richeste di CPU consentendo lievi inaccuratezze di timing. Questo 'hack' è considerato 'sicuro' - non dovrebbe causare errori e la maggior parte delle inaccuratezze sono impercettibili. Rimane comunque un hack, e gli utenti con macchine di classe desktop dovrebbero lasciarlo disabilitato. Su hardware a basse prestazioni (vecchi device Android, computer su singola scheda), questo hack è essenziale per il funzionamento del core a velocità piena.",
+		{
+			{"disabled", "disabilitato"},
+			{"enabled", "abilitato"},
+			{NULL, NULL},
+		},
+		NULL
+	},
+	{NULL, NULL, NULL, {{0}}, NULL},
+};
 /* RETRO_LANGUAGE_DUTCH */
 
 /* RETRO_LANGUAGE_PORTUGUESE_BRAZIL */
