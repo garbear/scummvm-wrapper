@@ -1,18 +1,18 @@
- /* Copyright (C) 2022 Giovanni Cascione <ing.cascione@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+/* Copyright (C) 2022 Giovanni Cascione <ing.cascione@gmail.com>
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "libretro-threads.h"
 #include "base/main.h"
@@ -22,7 +22,7 @@
 #define EMU_WAITING    (1 << 0)
 #define MAIN_WAITING   (1 << 1)
 #define EMU_EXITED     (1 << 2)
-static uint8_t status=EMU_WAITING|MAIN_WAITING;
+static uint8_t status = EMU_WAITING | MAIN_WAITING;
 
 #ifdef USE_LIBCO
 #include <libco.h>
@@ -40,129 +40,135 @@ static scond_t *main_cond;
 
 static bool retro_current_thread_is_main() {
 #ifdef USE_LIBCO
-  return (co_active() == main_thread);
+	return (co_active() == main_thread);
 #else
-  return (sthread_get_current_thread_id() == main_thread_id);
+	return (sthread_get_current_thread_id() == main_thread_id);
 #endif
 }
 
 static void retro_exit_to_main_thread() {
 #ifdef USE_LIBCO
-    co_switch(main_thread);
+	co_switch(main_thread);
 #else
-  slock_lock(main_lock);
-  status&=~MAIN_WAITING;
-  slock_unlock(main_lock);
-  slock_lock(emu_lock);
-  scond_signal(main_cond);
+	slock_lock(main_lock);
+	status &= ~MAIN_WAITING;
+	slock_unlock(main_lock);
+	slock_lock(emu_lock);
+	scond_signal(main_cond);
 
-  status |= EMU_WAITING;
-  while (status&EMU_WAITING) {
-    scond_wait(emu_cond, emu_lock);
-  }
-  slock_unlock(emu_lock);
+	status |= EMU_WAITING;
+	while (status & EMU_WAITING) {
+		scond_wait(emu_cond, emu_lock);
+	}
+	slock_unlock(emu_lock);
 #endif
 }
 
-static int retro_run_emulator(void){
-  static const char *argv[20] = {0};
-  for (int i = 0; i < cmd_params_num; i++)
-    argv[i] = cmd_params[i];
+static int retro_run_emulator(void) {
+	static const char *argv[20] = {0};
+	for (int i = 0; i < cmd_params_num; i++)
+		argv[i] = cmd_params[i];
 
-  return scummvm_main(cmd_params_num, argv);
+	return scummvm_main(cmd_params_num, argv);
 }
 
 static void retro_wrap_emulator(void) {
 
-  status&=~EMU_EXITED;
-  retro_run_emulator();
-  status|=EMU_EXITED;
+	status &= ~EMU_EXITED;
+	retro_run_emulator();
+	status |= EMU_EXITED;
 
-  retro_exit_to_main_thread();
+	retro_exit_to_main_thread();
 }
 
-static void retro_wrap_emulator(void *args) {retro_wrap_emulator();}
+static void retro_wrap_emulator(void *args) {
+	retro_wrap_emulator();
+}
 
 static void retro_free_emu_thread() {
 #ifdef USE_LIBCO
-  if (emu_thread)
-    co_delete(emu_thread);
+	if (emu_thread)
+		co_delete(emu_thread);
 #else
-  if (main_lock)
-    slock_free(main_lock);
-  if (emu_lock)
-    slock_free(emu_lock);
-  if (main_cond)
-    scond_free(main_cond);
-  if (emu_cond)
-    scond_free(emu_cond);
+	if (main_lock)
+		slock_free(main_lock);
+	if (emu_lock)
+		slock_free(emu_lock);
+	if (main_cond)
+		scond_free(main_cond);
+	if (emu_cond)
+		scond_free(emu_cond);
 #endif
-  emu_thread = NULL;
+	emu_thread = NULL;
 }
 
 void retro_switch_to_emu_thread() {
 #ifdef USE_LIBCO
-    co_switch(emu_thread);
+	co_switch(emu_thread);
 #else
-  slock_lock(emu_lock);
-  status &= ~EMU_WAITING;
-  slock_unlock(emu_lock);
-  slock_lock(main_lock);
-  scond_signal(emu_cond);
+	slock_lock(emu_lock);
+	status &= ~EMU_WAITING;
+	slock_unlock(emu_lock);
+	slock_lock(main_lock);
+	scond_signal(emu_cond);
 
-  status|=MAIN_WAITING;
-  while (status&MAIN_WAITING) {
-    scond_wait(main_cond, main_lock);
-  }
-  slock_unlock(main_lock);
+	status |= MAIN_WAITING;
+	while (status & MAIN_WAITING) {
+		scond_wait(main_cond, main_lock);
+	}
+	slock_unlock(main_lock);
 #endif
 }
 
 void retro_switch_to_main_thread() {
-  retro_exit_to_main_thread();
+	retro_exit_to_main_thread();
 #ifndef USE_LIBCO
-  status |= EMU_WAITING;
-  while (status&EMU_WAITING) {
-    scond_wait(emu_cond, emu_lock);
-  }
-  slock_unlock(emu_lock);
+	status |= EMU_WAITING;
+	while (status & EMU_WAITING) {
+		scond_wait(emu_cond, emu_lock);
+	}
+	slock_unlock(emu_lock);
 #endif
 }
 
-bool retro_emu_thread_initialized() { return (bool)emu_thread; }
+bool retro_emu_thread_initialized() {
+	return (bool)emu_thread;
+}
 
-bool retro_emu_thread_exited() { return (bool)(status&EMU_EXITED); }
+bool retro_emu_thread_exited() {
+	return (bool)(status & EMU_EXITED);
+}
 
 bool retro_init_emu_thread(void) {
-  if (retro_emu_thread_initialized())
-    return true;
-  bool success=true;
+	if (retro_emu_thread_initialized())
+		return true;
+	bool success = true;
 #ifdef USE_LIBCO
-  main_thread = co_active();
-  emu_thread = co_create(65536 * sizeof(void *), retro_wrap_emulator);
-  if (!emu_thread)
+	main_thread = co_active();
+	emu_thread = co_create(65536 * sizeof(void *), retro_wrap_emulator);
+	if (!emu_thread)
 #else
-  main_thread_id = sthread_get_current_thread_id();
-  main_lock = slock_new();
-  emu_lock = slock_new();
-  main_cond = scond_new();
-  emu_cond = scond_new();
-  emu_thread = sthread_create(retro_wrap_emulator, NULL);
+	main_thread_id = sthread_get_current_thread_id();
+	main_lock = slock_new();
+	emu_lock = slock_new();
+	main_cond = scond_new();
+	emu_cond = scond_new();
+	emu_thread = sthread_create(retro_wrap_emulator, NULL);
 
-  if (!main_lock || !emu_lock || !main_cond || !emu_cond || !emu_thread)
+	if (!main_lock || !emu_lock || !main_cond || !emu_cond || !emu_thread)
 #endif
-    success=false;
+		success = false;
 
-  if (!success)
-    retro_free_emu_thread();
+	if (!success)
+		retro_free_emu_thread();
 
-  return success;
+	return success;
 }
 
 void retro_deinit_emu_thread() {
-  if (!retro_emu_thread_initialized)
-    return;
-  if (!retro_current_thread_is_main())
-    retro_switch_to_main_thread();
-  retro_free_emu_thread();
+	if (!retro_emu_thread_initialized)
+		return;
+	if (!retro_current_thread_is_main())
+		retro_switch_to_main_thread();
+	retro_free_emu_thread();
 }
