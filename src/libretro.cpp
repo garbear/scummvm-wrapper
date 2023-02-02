@@ -50,7 +50,7 @@
 #include "base/internal_version.h"
 
 #include "libretro-threads.h"
-#include "libretro_core_options.h"
+#include "libretro-core-options.h"
 
 retro_log_printf_t log_cb = NULL;
 static retro_video_refresh_t video_cb = NULL;

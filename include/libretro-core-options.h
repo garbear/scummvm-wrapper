@@ -29,7 +29,7 @@
 #include <retro_inline.h>
 
 #ifndef HAVE_NO_LANGEXTRA
-#include "libretro_core_options_intl.h"
+#include "libretro-core-options-intl.h"
 #endif
 
 /*
