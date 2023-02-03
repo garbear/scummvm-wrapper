@@ -447,6 +447,10 @@ else ifeq ($(platform), win)
    DEFINES += -DHAVE_FSEEKO -DHAVE_INTTYPES_H -fPIC
    CXXFLAGS += -fno-permissive
    LDFLAGS += -shared -static-libgcc -static-libstdc++ -s -Wl,--version-script=$(ROOT_PATH)/link.T -fPIC
+ifneq ($(TARGET_64BIT),1)
+   DEFINES += -DRETRO_CALLCONV=__cdecl
+endif
+
 # OS X
 else ifeq ($(platform), osx)
    TARGET  := $(TARGET_NAME)_libretro.dylib
