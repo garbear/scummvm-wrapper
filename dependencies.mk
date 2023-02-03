@@ -29,7 +29,7 @@ sharedlibs_test_cc            = '\#include <$(this_lib_subpath)$(this_lib_header
 sharedlibs_get_include_path   = $(shell printf $(sharedlibs_test_cc) | $(CC) -E -Wp,-v - 2>/dev/null | grep "$(this_lib_subpath)$(this_lib_header)" | cut -d \" -f 2 | sed "s|/$(this_lib_header)||")
 sharedlibs_this_lib_includes  = $(if $(this_lib_subpath),-I$(call sharedlibs_get_include_path))
 sharedlibs_is_lib_available   = $(if $(shell result=$$(printf $(sharedlibs_test_cc) | $(CC) -xc -Wall -O -o /dev/null $(this_lib_flags) $(sharedlibs_this_lib_includes) - > /dev/null 2>&1 ; printf $$?) ;  { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),no,yes)
-sharedlibs_system_lib_message = $(info - Use system shared $(shell printf ' $(this_lib_flags)' | sed "s|.*-l||;s| .*||"): $(this_lib_available))
+sharedlibs_system_lib_message = $(info - Use system shared $(shell printf ' $(this_lib_flags)' | sed -e "s|.*-l||" -e "s| .*||"): $(this_lib_available))
 
 ######################################################################
 #  libretro-common settings
