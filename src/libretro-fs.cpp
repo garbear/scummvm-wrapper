@@ -28,15 +28,15 @@
 #define FORBIDDEN_SYMBOL_EXCEPTION_exit // Needed for IRIX's unistd.h
 
 #include "libretro-fs.h"
-#include "backends/fs/stdiostream.h"
-#include "common/algorithm.h"
-
-#include "file/file_path.h"
-#include "retro_dirent.h"
-#include "retro_stat.h"
+#include <file/file_path.h>
+#include <retro_dirent.h>
+#include <retro_stat.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+
+#include "backends/fs/stdiostream.h"
+#include "common/algorithm.h"
 
 void LibRetroFilesystemNode::setFlags() {
 	const char *fspath = _path.c_str();

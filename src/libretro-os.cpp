@@ -21,12 +21,13 @@
 
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 
-#include <list>
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <libretro.h>
 #include <retro_inline.h>
 #include <retro_miscellaneous.h>
+#include <features/features_cpu.h>
 
 #include "audio/mixer_intern.h"
 #include "backends/base-backend.h"
@@ -34,7 +35,7 @@
 #include "common/config-manager.h"
 #include "common/events.h"
 #include "common/tokenizer.h"
-#include "surface.libretro.h"
+#include "common/list.h"
 
 #if defined(_WIN32)
 #include "backends/fs/windows/windows-fs-factory.h"
@@ -48,6 +49,7 @@
 #include "backends/timer/default/default-timer.h"
 #include "graphics/colormasks.h"
 #include "graphics/palette.h"
+#include "graphics/surface.h"
 #if defined(_WIN32)
 #include <direct.h>
 #ifdef _XBOX
@@ -63,9 +65,7 @@
 #include <time.h>
 #endif
 
-#include "features/features_cpu.h"
 #include "libretro-threads.h"
-#include "libretro.h"
 #include "os.h"
 
 extern retro_log_printf_t log_cb;
@@ -117,8 +117,8 @@ static INLINE void blit_uint8_uint16_fast(Graphics::Surface &aOut, const Graphic
 		if (i >= aOut.h)
 			continue;
 
-		uint8_t *const in = (uint8_t *)aIn.pixels + (i * aIn.w);
-		uint16_t *const out = (uint16_t *)aOut.pixels + (i * aOut.w);
+		uint8_t *const in = (uint8_t *)aIn.getPixels() + (i * aIn.w);
+		uint16_t *const out = (uint16_t *)aOut.getPixels() + (i * aOut.w);
 
 		for (int j = 0; j < aIn.w; j++) {
 			if (j >= aOut.w)
@@ -148,8 +148,8 @@ static INLINE void blit_uint32_uint16(Graphics::Surface &aOut, const Graphics::S
 		if (i >= aOut.h)
 			continue;
 
-		uint32_t *const in = (uint32_t *)aIn.pixels + (i * aIn.w);
-		uint16_t *const out = (uint16_t *)aOut.pixels + (i * aOut.w);
+		uint32_t *const in = (uint32_t *)aIn.getPixels() + (i * aIn.w);
+		uint16_t *const out = (uint16_t *)aOut.getPixels() + (i * aOut.w);
 
 		for (int j = 0; j < aIn.w; j++) {
 			if (j >= aOut.w)
@@ -172,8 +172,8 @@ static INLINE void blit_uint16_uint16(Graphics::Surface &aOut, const Graphics::S
 		if (i >= aOut.h)
 			continue;
 
-		uint16_t *const in = (uint16_t *)aIn.pixels + (i * aIn.w);
-		uint16_t *const out = (uint16_t *)aOut.pixels + (i * aOut.w);
+		uint16_t *const in = (uint16_t *)aIn.getPixels() + (i * aIn.w);
+		uint16_t *const out = (uint16_t *)aOut.getPixels() + (i * aOut.w);
 
 		for (int j = 0; j < aIn.w; j++) {
 			if (j >= aOut.w)
@@ -196,8 +196,8 @@ static void blit_uint8_uint16(Graphics::Surface &aOut, const Graphics::Surface &
 		if ((i + aY) < 0 || (i + aY) >= aOut.h)
 			continue;
 
-		uint8_t *const in = (uint8_t *)aIn.pixels + (i * aIn.w);
-		uint16_t *const out = (uint16_t *)aOut.pixels + ((i + aY) * aOut.w);
+		uint8_t *const in = (uint8_t *)aIn.getPixels() + (i * aIn.w);
+		uint16_t *const out = (uint16_t *)aOut.getPixels() + ((i + aY) * aOut.w);
 
 		for (int j = 0; j < aIn.w; j++) {
 			if ((j + aX) < 0 || (j + aX) >= aOut.w)
@@ -222,8 +222,8 @@ static void blit_uint16_uint16(Graphics::Surface &aOut, const Graphics::Surface 
 		if ((i + aY) < 0 || (i + aY) >= aOut.h)
 			continue;
 
-		uint16_t *const in = (uint16_t *)aIn.pixels + (i * aIn.w);
-		uint16_t *const out = (uint16_t *)aOut.pixels + ((i + aY) * aOut.w);
+		uint16_t *const in = (uint16_t *)aIn.getPixels() + (i * aIn.w);
+		uint16_t *const out = (uint16_t *)aOut.getPixels() + ((i + aY) * aOut.w);
 
 		for (int j = 0; j < aIn.w; j++) {
 			if ((j + aX) < 0 || (j + aX) >= aOut.w)
@@ -245,8 +245,8 @@ static void blit_uint32_uint16(Graphics::Surface &aOut, const Graphics::Surface 
 		if ((i + aY) < 0 || (i + aY) >= aOut.h)
 			continue;
 
-		uint32_t *const in = (uint32_t *)aIn.pixels + (i * aIn.w);
-		uint16_t *const out = (uint16_t *)aOut.pixels + ((i + aY) * aOut.w);
+		uint32_t *const in = (uint32_t *)aIn.getPixels() + (i * aIn.w);
+		uint16_t *const out = (uint16_t *)aOut.getPixels() + ((i + aY) * aOut.w);
 
 		for (int j = 0; j < aIn.w; j++) {
 			if ((j + aX) < 0 || (j + aX) >= aOut.w)
@@ -317,7 +317,7 @@ static Common::String s_saveDir;
 #define SURF_ASHIFT 15
 #endif
 
-std::list<Common::Event> _events;
+Common::List<Common::Event> _events;
 
 class OSystem_RETRO : public EventsBaseBackend, public PaletteManager {
 public:
@@ -328,6 +328,7 @@ public:
 
 	Graphics::Surface _overlay;
 	bool _overlayVisible;
+	bool _overlayInGUI;
 
 	Graphics::Surface _mouseImage;
 	RetroPalette _mousePalette;
@@ -493,12 +494,12 @@ protected:
 public:
 	virtual void copyRectToScreen(const void *buf, int pitch, int x, int y, int w, int h) {
 		const uint8_t *src = (const uint8_t *)buf;
-		uint8_t *pix = (uint8_t *)_gameScreen.pixels;
+		uint8_t *pix = (uint8_t *)_gameScreen.getPixels();
 		copyRectToSurface(pix, _gameScreen.pitch, src, pitch, x, y, w, h, _gameScreen.format.bytesPerPixel);
 	}
 
 	virtual void updateScreen() {
-		const Graphics::Surface &srcSurface = (_overlayVisible) ? _overlay : _gameScreen;
+		const Graphics::Surface &srcSurface = (_overlayInGUI) ? _overlay : _gameScreen;
 		if (srcSurface.w && srcSurface.h) {
 			switch (srcSurface.format.bytesPerPixel) {
 			case 1:
@@ -544,12 +545,14 @@ public:
 		// TODO
 	}
 
-	virtual void showOverlay() {
+	virtual void showOverlay(bool inGUI) {
 		_overlayVisible = true;
+		_overlayInGUI = inGUI;
 	}
 
 	virtual void hideOverlay() {
 		_overlayVisible = false;
+		_overlayInGUI = false;
 	}
 
 	virtual void clearOverlay() {
@@ -557,7 +560,7 @@ public:
 	}
 
 	virtual void grabOverlay(Graphics::Surface &surface) {
-		const unsigned char *src = (unsigned char *)_overlay.pixels;
+		const unsigned char *src = (unsigned char *)_overlay.getPixels();
 		unsigned char *dst = (byte *)surface.getPixels();
 		;
 		unsigned i = RES_H_OVERLAY;
@@ -571,7 +574,7 @@ public:
 
 	virtual void copyRectToOverlay(const void *buf, int pitch, int x, int y, int w, int h) {
 		const uint8_t *src = (const uint8_t *)buf;
-		uint8_t *pix = (uint8_t *)_overlay.pixels;
+		uint8_t *pix = (uint8_t *)_overlay.getPixels();
 		copyRectToSurface(pix, _overlay.pitch, src, pitch, x, y, w, h, _overlay.format.bytesPerPixel);
 	}
 
@@ -605,7 +608,7 @@ public:
 			_mouseImage.create(w, h, mformat);
 		}
 
-		memcpy(_mouseImage.pixels, buf, h * _mouseImage.pitch);
+		memcpy(_mouseImage.getPixels(), buf, h * _mouseImage.pitch);
 
 		_mouseHotspotX = hotspotX;
 		_mouseHotspotY = hotspotY;
@@ -750,7 +753,7 @@ public:
 	//
 
 	const Graphics::Surface &getScreen() {
-		const Graphics::Surface &srcSurface = (_overlayVisible) ? _overlay : _gameScreen;
+		const Graphics::Surface &srcSurface = (_overlayInGUI) ? _overlay : _gameScreen;
 
 		if (srcSurface.w != _screen.w || srcSurface.h != _screen.h) {
 #ifdef FRONTEND_SUPPORTS_RGB565
@@ -1234,7 +1237,7 @@ public:
 
 		} else {
 
-			ConfMan.loadDefaultConfigFile();
+			ConfMan.loadDefaultConfigFile(getDefaultConfigFileName().c_str());
 			if (ConfMan.hasGameDomain(data)) {
 				res = TEST_GAME_OK_TARGET_FOUND;
 			} else {
