@@ -61,8 +61,8 @@ ifeq ($(IOSSDK),)
    IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
 endif
 ifeq ($(platform),ios-arm64)
-  CC        = cc -arch arm64 -isysroot $(IOSSDK)
-  CXX       = c++ -arch arm64 -isysroot $(IOSSDK)
+   CC        = cc -arch arm64 -isysroot $(IOSSDK)
+   CXX       = c++ -arch arm64 -isysroot $(IOSSDK)
 else
    CC       = cc -arch armv7 -isysroot $(IOSSDK) -marm
    CXX      = c++ -arch armv7 -isysroot $(IOSSDK)
@@ -73,8 +73,8 @@ ifeq ($(platform),$(filter $(platform),ios9 ios-arm64))
 else
    MINVERSION += -miphoneos-version-min=5.0
 endif
-  CFLAGS   += $(MINVERSION)
-  CXXFLAGS += $(MINVERSION) -std=c++11
+   CFLAGS   += $(MINVERSION)
+   CXXFLAGS += $(MINVERSION) -std=c++11
 
 else ifeq ($(platform), tvos-arm64)
    EXT?=dylib

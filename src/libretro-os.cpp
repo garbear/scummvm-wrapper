@@ -21,7 +21,6 @@
 
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 
-#include <list>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -34,7 +33,7 @@
 #include "common/config-manager.h"
 #include "common/events.h"
 #include "common/tokenizer.h"
-#include "surface.libretro.h"
+#include "common/list.h"
 
 #if defined(_WIN32)
 #include "backends/fs/windows/windows-fs-factory.h"
@@ -317,7 +316,7 @@ static Common::String s_saveDir;
 #define SURF_ASHIFT 15
 #endif
 
-std::list<Common::Event> _events;
+Common::List<Common::Event> _events;
 
 class OSystem_RETRO : public EventsBaseBackend, public PaletteManager {
 public:
@@ -328,6 +327,7 @@ public:
 
 	Graphics::Surface _overlay;
 	bool _overlayVisible;
+	bool _overlayInGUI;
 
 	Graphics::Surface _mouseImage;
 	RetroPalette _mousePalette;
@@ -496,7 +496,7 @@ public:
 	}
 
 	virtual void updateScreen() {
-		const Graphics::Surface &srcSurface = (_overlayVisible) ? _overlay : _gameScreen;
+		const Graphics::Surface &srcSurface = (_overlayInGUI) ? _overlay : _gameScreen;
 		if (srcSurface.w && srcSurface.h) {
 			switch (srcSurface.format.bytesPerPixel) {
 			case 1:
@@ -542,12 +542,14 @@ public:
 		// TODO
 	}
 
-	virtual void showOverlay() {
+	virtual void showOverlay(bool inGUI) {
 		_overlayVisible = true;
+		_overlayInGUI = inGUI;
 	}
 
 	virtual void hideOverlay() {
 		_overlayVisible = false;
+		_overlayInGUI = false;
 	}
 
 	virtual void clearOverlay() {
@@ -748,7 +750,7 @@ public:
 	//
 
 	const Graphics::Surface &getScreen() {
-		const Graphics::Surface &srcSurface = (_overlayVisible) ? _overlay : _gameScreen;
+		const Graphics::Surface &srcSurface = (_overlayInGUI) ? _overlay : _gameScreen;
 
 		if (srcSurface.w != _screen.w || srcSurface.h != _screen.h) {
 #ifdef FRONTEND_SUPPORTS_RGB565
@@ -1246,7 +1248,7 @@ public:
 
 		} else {
 
-			ConfMan.loadDefaultConfigFile();
+			ConfMan.loadDefaultConfigFile(getDefaultConfigFileName().c_str());
 			if (ConfMan.hasGameDomain(data)) {
 				res = TEST_GAME_OK_TARGET_FOUND;
 			} else {

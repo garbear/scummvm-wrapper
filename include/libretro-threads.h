@@ -19,10 +19,8 @@
  *
  */
 
-#ifndef EMU_THREAD_H
-#define EMU_THREAD_H
-
-#include <stdbool.h>
+#ifndef LIBRETRO_THREADS_H
+#define LIBRETRO_THREADS_H
 
 /* ScummVM doesn't have a top-level main loop that we can use, so instead we run it in its own thread
  * and switch between it and the main thread. Calling these function will block the current thread
