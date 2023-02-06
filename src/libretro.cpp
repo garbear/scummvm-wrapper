@@ -21,13 +21,13 @@
 
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 
-#include "libretro.h"
+#include <libretro.h>
 #include "audio/mixer_intern.h"
 #include "base/main.h"
 #include "common/scummsys.h"
 #include "streams/file_stream.h"
 #include "os.h"
-#include "surface.libretro.h"
+#include "graphics/surface.h"
 #ifdef _WIN32
 #include <direct.h>
 #else
@@ -442,7 +442,7 @@ void retro_run(void) {
 		/* Upload video: TODO: Check the CANDUPE env value */
 		const Graphics::Surface &screen = getScreen();
 
-		video_cb(screen.pixels, screen.w, screen.h, screen.pitch);
+		video_cb(screen.getPixels(), screen.w, screen.h, screen.pitch);
 
 		/* Upload audio */
 		static uint32 buf[800];
