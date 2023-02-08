@@ -25,6 +25,8 @@
 #include "audio/mixer_intern.h"
 #include "base/main.h"
 #include "common/scummsys.h"
+#include "common/str.h"
+#include "common/fs.h"
 #include "streams/file_stream.h"
 #include "os.h"
 #include "graphics/surface.h"
@@ -40,7 +42,6 @@
  */
 #include <libgen.h>
 #endif
-#include <string.h>
 
 /**
  * Include base/internal_version.h to allow access to SCUMMVM_VERSION.
@@ -345,8 +346,9 @@ bool retro_load_game(const struct retro_game_info *game) {
 
 	if (game) {
 		// Retrieve the game path.
-		char *path = strdup(game->path);
-		char *gamedir = dirname(path);
+		Common::FSNode detect_target = Common::FSNode(game->path);
+		Common::FSNode parent_dir = detect_target.getParent();
+		char target_id[400] = {0};
 		char buffer[400];
 		int test_game_status = TEST_GAME_KO_NOT_FOUND;
 
@@ -356,48 +358,66 @@ bool retro_load_game(const struct retro_game_info *game) {
 		retro_msg.duration = 3000;
 		retro_msg.msg = "";
 
-		char filedata[400] = {0};
 		// See if we are loading a .scummvm file.
 		if (strstr(game->path, ".scummvm") != NULL) {
 			// Open the file.
 			RFILE *gamefile = filestream_open(game->path, RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
 			if (!gamefile) {
-				log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to load given game file.\n");
+				log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to load given game file '%s'.\n", game->path);
 				return false;
 			}
 
 			// Load the file data.
-			if (filestream_gets(gamefile, filedata, sizeof(filedata)) == NULL) {
+			if (filestream_gets(gamefile, target_id, sizeof(target_id)) == NULL) {
 				filestream_close(gamefile);
-				log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to load contents of game file.\n");
+				log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to load contents of game file '%s'.\n", game->path);
+				return false;
+			}
+			filestream_close(gamefile);
+
+			Common::String tmp = target_id;
+			tmp.trim();
+			strcpy(target_id, tmp.c_str());
+
+			if (strlen(target_id) == 0) {
+				log_cb(RETRO_LOG_ERROR, "[scummvm] Game file '%s' does not contain any target id.\n", game->path);
 				return false;
 			}
 
-			test_game_status = retroTestGame(filedata, false);
-
-			// Create a command line parameters using -p and the game name.
-			filestream_close(gamefile);
+			test_game_status = retroTestGame(target_id, false);
 		} else {
-			// Use auto-detect to launch the game from the given directory.
-			test_game_status = retroTestGame(gamedir, true);
+			if (!detect_target.isDirectory()) {
+				if (detect_target.getName().equals(parent_dir.getName())) {
+					log_cb(RETRO_LOG_ERROR, "[scummvm] Autodetect not possible. No parent directory detected in '%s'.\n", game->path);
+					return false;
+				}
+				detect_target = parent_dir;
+			}
+			// Use auto-detect to launch the game from a directory.
+			test_game_status = retroTestGame(detect_target.getPath().c_str(), true);
 		}
 
 		// Preliminary game scan results
 		switch (test_game_status) {
 		case TEST_GAME_OK_ID_FOUND:
-			sprintf(buffer, "-p \"%s\" %s", gamedir, filedata);
+			sprintf(buffer, "-p \"%s\" %s", parent_dir.getPath().c_str(), target_id);
+			log_cb(RETRO_LOG_DEBUG, "[scummvm] launch via target id and game dir\n");
 			break;
 		case TEST_GAME_OK_TARGET_FOUND:
-			sprintf(buffer, "%s", filedata);
+			sprintf(buffer, "%s", target_id);
+			log_cb(RETRO_LOG_DEBUG, "[scummvm] launch via target id and scummvm.ini\n");
 			break;
 		case TEST_GAME_OK_ID_AUTODETECTED:
-			sprintf(buffer, "-p \"%s\" --auto-detect", gamedir);
+			sprintf(buffer, "-p \"%s\" --auto-detect", detect_target.getPath().c_str());
+			log_cb(RETRO_LOG_DEBUG, "[scummvm] launch via autodetect\n");
 			break;
 		case TEST_GAME_KO_MULTIPLE_RESULTS:
+			log_cb(RETRO_LOG_WARN, "[scummvm] Multiple targets found for '%s' in scummvm.ini\n", target_id);
 			retro_msg.msg = "Multiple targets found";
 			break;
 		case TEST_GAME_KO_NOT_FOUND:
 		default:
+			log_cb(RETRO_LOG_WARN, "[scummvm] Game not found. Check path and content of '%s'\n", detect_target.getPath().c_str());
 			retro_msg.msg = "Game not found";
 		}
 
