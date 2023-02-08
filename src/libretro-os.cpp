@@ -1224,7 +1224,7 @@ public:
 		return false;
 	}
 
-	int TestGame(char *filedata, bool autodetect) {
+	int TestGame(const char *filedata, bool autodetect) {
 		Common::String game_id;
 		Common::String engine_id;
 		Common::String data = filedata;
@@ -1297,7 +1297,7 @@ void retroQuit() {
 	dynamic_cast<OSystem_RETRO *>(g_system)->Quit();
 }
 
-int retroTestGame(char *game_id, bool autodetect) {
+int retroTestGame(const char *game_id, bool autodetect) {
 	return dynamic_cast<OSystem_RETRO *>(g_system)->TestGame(game_id, autodetect);
 }
 
