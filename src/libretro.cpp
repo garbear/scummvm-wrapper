@@ -358,8 +358,11 @@ bool retro_load_game(const struct retro_game_info *game) {
 		retro_msg.duration = 3000;
 		retro_msg.msg = "";
 
+		const char * target_file_ext = ".scummvm";
+		int target_file_ext_pos = strlen(game->path) - strlen(target_file_ext);
+
 		// See if we are loading a .scummvm file.
-		if (strstr(game->path, ".scummvm") != NULL) {
+		if (!target_file_ext_pos < 0 && strstr(game->path + target_file_ext_pos, target_file_ext) != NULL) {
 			// Open the file.
 			RFILE *gamefile = filestream_open(game->path, RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
 			if (!gamefile) {
