@@ -386,15 +386,17 @@ bool retro_load_game(const struct retro_game_info *game) {
 
 			test_game_status = retroTestGame(target_id, false);
 		} else {
-			if (!detect_target.isDirectory()) {
-				if (detect_target.getName().equals(parent_dir.getName())) {
+			if (detect_target.isDirectory()) {
+				parent_dir = detect_target;
+			} else {
+				// If this node has no parent node, then it returns a duplicate of this node.
+				if (detect_target.getPath().equals(parent_dir.getPath())) {
 					log_cb(RETRO_LOG_ERROR, "[scummvm] Autodetect not possible. No parent directory detected in '%s'.\n", game->path);
 					return false;
 				}
-				detect_target = parent_dir;
 			}
-			// Use auto-detect to launch the game from a directory.
-			test_game_status = retroTestGame(detect_target.getPath().c_str(), true);
+
+			test_game_status = retroTestGame(parent_dir.getPath().c_str(), true);
 		}
 
 		// Preliminary game scan results
@@ -408,7 +410,7 @@ bool retro_load_game(const struct retro_game_info *game) {
 			log_cb(RETRO_LOG_DEBUG, "[scummvm] launch via target id and scummvm.ini\n");
 			break;
 		case TEST_GAME_OK_ID_AUTODETECTED:
-			sprintf(buffer, "-p \"%s\" --auto-detect", detect_target.getPath().c_str());
+			sprintf(buffer, "-p \"%s\" --auto-detect", parent_dir.getPath().c_str());
 			log_cb(RETRO_LOG_DEBUG, "[scummvm] launch via autodetect\n");
 			break;
 		case TEST_GAME_KO_MULTIPLE_RESULTS:
@@ -417,7 +419,7 @@ bool retro_load_game(const struct retro_game_info *game) {
 			break;
 		case TEST_GAME_KO_NOT_FOUND:
 		default:
-			log_cb(RETRO_LOG_WARN, "[scummvm] Game not found. Check path and content of '%s'\n", detect_target.getPath().c_str());
+			log_cb(RETRO_LOG_WARN, "[scummvm] Game not found. Check path and content of '%s'\n", game->path);
 			retro_msg.msg = "Game not found";
 		}
 
