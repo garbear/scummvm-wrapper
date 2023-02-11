@@ -336,6 +336,8 @@ public:
 	bool _mouseVisible;
 	int _mouseX;
 	int _mouseY;
+	int _mouseX_prev;
+	int _mouseY_prev;
 	float _mouseXAcc;
 	float _mouseYAcc;
 	float _dpadXAcc;
@@ -974,7 +976,12 @@ public:
 			ev.type = Common::EVENT_MOUSEMOVE;
 			ev.mouse.x = _mouseX;
 			ev.mouse.y = _mouseY;
+			ev.relMouse.x = _mouseX - _mouseX_prev;
+			ev.relMouse.y = _mouseY - _mouseY_prev;
 			_events.push_back(ev);
+
+			_mouseX_prev = _mouseX;
+			_mouseY_prev = _mouseY;
 		}
 
 		if (ptrhold > 10 && _ptrmouseButton == 0) {
@@ -1000,7 +1007,12 @@ public:
 			ev.type = Common::EVENT_MOUSEMOVE;
 			ev.mouse.x = _mouseX;
 			ev.mouse.y = _mouseY;
+			ev.relMouse.x = _mouseX - _mouseX_prev;
+			ev.relMouse.y = _mouseY - _mouseY_prev;
 			_events.push_back(ev);
+
+			_mouseX_prev = _mouseX;
+			_mouseY_prev = _mouseY;
 		}
 
 		// Gampad mouse buttons
@@ -1157,7 +1169,12 @@ public:
 			ev.type = Common::EVENT_MOUSEMOVE;
 			ev.mouse.x = _mouseX;
 			ev.mouse.y = _mouseY;
+			ev.relMouse.x = _mouseX - _mouseX_prev;
+			ev.relMouse.y = _mouseY - _mouseY_prev;
 			_events.push_back(ev);
+
+			_mouseX_prev = _mouseX;
+			_mouseY_prev = _mouseY;
 		}
 
 		for (int i = 0; i < 2; i++) {
