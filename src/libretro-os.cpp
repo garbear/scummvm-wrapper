@@ -336,8 +336,8 @@ public:
 	bool _mouseVisible;
 	int _mouseX;
 	int _mouseY;
-	int _mouseX_prev;
-	int _mouseY_prev;
+	int _relMouseX;
+	int _relMouseY;
 	float _mouseXAcc;
 	float _mouseYAcc;
 	float _dpadXAcc;
@@ -770,11 +770,46 @@ public:
 #define BASE_CURSOR_SPEED 4
 #define PI 3.141592653589793238
 
+	void updateMouseXY(float deltaAcc, float * cumulativeXYAcc, int doing_x){
+		int * mouseXY;
+		uint16 * screen_wh;
+		int * relMouseXY;
+		int cumulativeXYAcc_int;
+		if (doing_x) {
+			mouseXY = &_mouseX;
+			screen_wh = &_screen.w;
+			relMouseXY = &_relMouseX;
+		} else {
+			mouseXY = &_mouseY;
+			screen_wh = &_screen.h;
+			relMouseXY = &_relMouseY;
+		}
+		*cumulativeXYAcc += deltaAcc;
+		cumulativeXYAcc_int = (int)*cumulativeXYAcc;
+		if (cumulativeXYAcc_int != 0) {
+			// Set mouse position
+			*mouseXY += cumulativeXYAcc_int;
+			*mouseXY = (*mouseXY < 0) ? 0 : *mouseXY;
+			*mouseXY = (*mouseXY >= *screen_wh) ? *screen_wh : *mouseXY;
+			// Update accumulator
+			*cumulativeXYAcc -= (float)cumulativeXYAcc_int;
+		}
+		*relMouseXY = (int)deltaAcc;
+
+	}
+
 	void processMouse(retro_input_state_t aCallback, int device, float gampad_cursor_speed, float gamepad_acceleration_time, bool analog_response_is_quadratic, int analog_deadzone, float mouse_speed) {
+		enum processMouse_status {
+			STATUS_DOING_JOYSTICK  = (1 << 0),
+			STATUS_DOING_MOUSE     = (1 << 1),
+			STATUS_DOING_X         = (1 << 2),
+			STATUS_DOING_Y         = (1 << 3)
+		};
+		uint8_t status = 0;
 		int16_t joy_x, joy_y, joy_rx, joy_ry, x, y;
 		float analog_amplitude_x, analog_amplitude_y;
-		int mouse_acc_int;
-		bool do_joystick, do_mouse, down;
+		float deltaAcc;
+		bool  down;
 		float screen_adjusted_cursor_speed = (float)_screen.w / 320.0f; // Dpad cursor speed should always be based off a 320 wide screen, to keep speeds consistent
 		float adjusted_cursor_speed = (float)BASE_CURSOR_SPEED * gampad_cursor_speed * screen_adjusted_cursor_speed;
 		float inverse_acceleration_time = (gamepad_acceleration_time > 0.0) ? (1.0 / 60.0) * (1.0 / gamepad_acceleration_time) : 1.0;
@@ -813,8 +848,7 @@ public:
 			adjusted_cursor_speed = adjusted_cursor_speed * (1.0f / 5.0f);
 		}
 
-		down = false;
-		do_joystick = false;
+		status = 0;
 		x = aCallback(0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_X);
 		y = aCallback(0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_Y);
 		joy_x = aCallback(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X);
@@ -822,6 +856,7 @@ public:
 
 		// Left Analog X Axis
 		if (joy_x > analog_deadzone || joy_x < -analog_deadzone) {
+			status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_X);
 			if (joy_x > analog_deadzone) {
 				// Reset accumulator when changing direction
 				_mouseXAcc = (_mouseXAcc < 0.0) ? 0.0 : _mouseXAcc;
@@ -841,22 +876,13 @@ public:
 					analog_amplitude_x = analog_amplitude_x * analog_amplitude_x;
 			}
 			// printf("analog_amplitude_x: %f\n", analog_amplitude_x);
-			_mouseXAcc += analog_amplitude_x * adjusted_cursor_speed;
-			// Get integer part of accumulator
-			mouse_acc_int = (int)_mouseXAcc;
-			if (mouse_acc_int != 0) {
-				// Set mouse position
-				_mouseX += mouse_acc_int;
-				_mouseX = (_mouseX < 0) ? 0 : _mouseX;
-				_mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-				do_joystick = true;
-				// Update accumulator
-				_mouseXAcc -= (float)mouse_acc_int;
-			}
+			deltaAcc = analog_amplitude_x * adjusted_cursor_speed;
+			updateMouseXY(deltaAcc, &_mouseXAcc, 1);
 		}
 
 		// Left Analog Y Axis
 		if (joy_y > analog_deadzone || joy_y < -analog_deadzone) {
+			status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_Y);
 			if (joy_y > analog_deadzone) {
 				// Reset accumulator when changing direction
 				_mouseYAcc = (_mouseYAcc < 0.0) ? 0.0 : _mouseYAcc;
@@ -876,18 +902,8 @@ public:
 					analog_amplitude_y = analog_amplitude_y * analog_amplitude_y;
 			}
 			// printf("analog_amplitude_y: %f\n", analog_amplitude_y);
-			_mouseYAcc += analog_amplitude_y * adjusted_cursor_speed;
-			// Get integer part of accumulator
-			mouse_acc_int = (int)_mouseYAcc;
-			if (mouse_acc_int != 0) {
-				// Set mouse position
-				_mouseY += mouse_acc_int;
-				_mouseY = (_mouseY < 0) ? 0 : _mouseY;
-				_mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-				do_joystick = true;
-				// Update accumulator
-				_mouseYAcc -= (float)mouse_acc_int;
-			}
+			deltaAcc = analog_amplitude_y * adjusted_cursor_speed;
+			updateMouseXY(deltaAcc, &_mouseYAcc, 0);
 		}
 
 		if (device == RETRO_DEVICE_JOYPAD) {
@@ -897,53 +913,40 @@ public:
 			bool dpadDown = aCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN);
 
 			if (dpadLeft || dpadRight) {
+				status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_X);
 				_dpadXVel = MIN(_dpadXVel + inverse_acceleration_time, 1.0f);
+
+				if (dpadLeft) {
+					deltaAcc = -(_dpadXVel * adjusted_cursor_speed);
+					_dpadXAcc = _dpadXAcc < deltaAcc ? _dpadXAcc : 0.0f;
+				} else { //dpadRight
+					deltaAcc = _dpadXVel * adjusted_cursor_speed;
+					_dpadXAcc = _dpadXAcc > deltaAcc ? _dpadXAcc : 0.0f;
+				}
+
+				updateMouseXY(deltaAcc, &_dpadXAcc, 1);
 			} else {
 				_dpadXVel = 0.0f;
 			}
 
+
 			if (dpadUp || dpadDown) {
+				status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_Y);
 				_dpadYVel = MIN(_dpadYVel + inverse_acceleration_time, 1.0f);
+
+				if (dpadUp) {
+					deltaAcc = -(_dpadYVel * adjusted_cursor_speed);
+					_dpadYAcc = _dpadYAcc < deltaAcc ? _dpadYAcc : 0.0f;
+				} else { //dpadDown
+					deltaAcc = _dpadYVel * adjusted_cursor_speed;
+					_dpadYAcc = _dpadYAcc > deltaAcc ? _dpadYAcc : 0.0f;
+				}
+
+				updateMouseXY(deltaAcc, &_dpadYAcc, 0);
+
+
 			} else {
 				_dpadYVel = 0.0f;
-			}
-
-			if (dpadLeft) {
-				_dpadXAcc = MIN(_dpadXAcc - _dpadXVel * adjusted_cursor_speed, 0.0f);
-				_mouseX += (int)_dpadXAcc;
-				_dpadXAcc -= (float)(int)_dpadXAcc;
-
-				_mouseX = (_mouseX < 0) ? 0 : _mouseX;
-				_mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-				do_joystick = true;
-			}
-			if (dpadRight) {
-				_dpadXAcc = MAX(_dpadXAcc + _dpadXVel * adjusted_cursor_speed, 0.0f);
-				_mouseX += (int)_dpadXAcc;
-				_dpadXAcc -= (float)(int)_dpadXAcc;
-
-				_mouseX = (_mouseX < 0) ? 0 : _mouseX;
-				_mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-				do_joystick = true;
-			}
-
-			if (dpadUp) {
-				_dpadYAcc = MIN(_dpadYAcc - _dpadYVel * adjusted_cursor_speed, 0.0f);
-				_mouseY += (int)_dpadYAcc;
-				_dpadYAcc -= (float)(int)_dpadYAcc;
-
-				_mouseY = (_mouseY < 0) ? 0 : _mouseY;
-				_mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-				do_joystick = true;
-			}
-			if (dpadDown) {
-				_dpadYAcc = MAX(_dpadYAcc + _dpadYVel * adjusted_cursor_speed, 0.0f);
-				_mouseY += (int)_dpadYAcc;
-				_dpadYAcc -= (float)(int)_dpadYAcc;
-
-				_mouseY = (_mouseY < 0) ? 0 : _mouseY;
-				_mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-				do_joystick = true;
 			}
 
 			if (aCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START)) {
@@ -976,12 +979,7 @@ public:
 			ev.type = Common::EVENT_MOUSEMOVE;
 			ev.mouse.x = _mouseX;
 			ev.mouse.y = _mouseY;
-			ev.relMouse.x = _mouseX - _mouseX_prev;
-			ev.relMouse.y = _mouseY - _mouseY_prev;
 			_events.push_back(ev);
-
-			_mouseX_prev = _mouseX;
-			_mouseY_prev = _mouseY;
 		}
 
 		if (ptrhold > 10 && _ptrmouseButton == 0) {
@@ -1002,17 +1000,14 @@ public:
 
 #endif
 
-		if (do_joystick) {
+		if (status & STATUS_DOING_JOYSTICK) {
 			Common::Event ev;
 			ev.type = Common::EVENT_MOUSEMOVE;
 			ev.mouse.x = _mouseX;
 			ev.mouse.y = _mouseY;
-			ev.relMouse.x = _mouseX - _mouseX_prev;
-			ev.relMouse.y = _mouseY - _mouseY_prev;
+			ev.relMouse.x = status & STATUS_DOING_X ? _relMouseX : 0;
+			ev.relMouse.y = status & STATUS_DOING_Y ? _relMouseY : 0;
 			_events.push_back(ev);
-
-			_mouseX_prev = _mouseX;
-			_mouseY_prev = _mouseY;
 		}
 
 		// Gampad mouse buttons
@@ -1114,9 +1109,9 @@ public:
 		}
 
 		// Process input from physical mouse
-		do_mouse = false;
 		// > X Axis
 		if (x != 0) {
+			status |= (STATUS_DOING_MOUSE | STATUS_DOING_X);
 			if (x > 0) {
 				// Reset accumulator when changing direction
 				_mouseXAcc = (_mouseXAcc < 0.0) ? 0.0 : _mouseXAcc;
@@ -1125,22 +1120,12 @@ public:
 				// Reset accumulator when changing direction
 				_mouseXAcc = (_mouseXAcc > 0.0) ? 0.0 : _mouseXAcc;
 			}
-			// Update accumulator
-			_mouseXAcc += (float)x * mouse_speed;
-			// Get integer part of accumulator
-			mouse_acc_int = (int)_mouseXAcc;
-			if (mouse_acc_int != 0) {
-				// Set mouse position
-				_mouseX += mouse_acc_int;
-				_mouseX = (_mouseX < 0) ? 0 : _mouseX;
-				_mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-				do_mouse = true;
-				// Update accumulator
-				_mouseXAcc -= (float)mouse_acc_int;
-			}
+			deltaAcc = (float)x * mouse_speed;
+			updateMouseXY(deltaAcc, &_mouseXAcc, 1);
 		}
 		// > Y Axis
 		if (y != 0) {
+			status |= (STATUS_DOING_MOUSE | STATUS_DOING_Y);
 			if (y > 0) {
 				// Reset accumulator when changing direction
 				_mouseYAcc = (_mouseYAcc < 0.0) ? 0.0 : _mouseYAcc;
@@ -1149,32 +1134,18 @@ public:
 				// Reset accumulator when changing direction
 				_mouseYAcc = (_mouseYAcc > 0.0) ? 0.0 : _mouseYAcc;
 			}
-			// Update accumulator
-			_mouseYAcc += (float)y * mouse_speed;
-			// Get integer part of accumulator
-			mouse_acc_int = (int)_mouseYAcc;
-			if (mouse_acc_int != 0) {
-				// Set mouse position
-				_mouseY += mouse_acc_int;
-				_mouseY = (_mouseY < 0) ? 0 : _mouseY;
-				_mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-				do_mouse = true;
-				// Update accumulator
-				_mouseYAcc -= (float)mouse_acc_int;
-			}
+			deltaAcc = (float)y * mouse_speed;
+			updateMouseXY(deltaAcc, &_mouseYAcc, 0);
 		}
 
-		if (do_mouse) {
+		if (status & STATUS_DOING_MOUSE) {
 			Common::Event ev;
 			ev.type = Common::EVENT_MOUSEMOVE;
 			ev.mouse.x = _mouseX;
 			ev.mouse.y = _mouseY;
-			ev.relMouse.x = _mouseX - _mouseX_prev;
-			ev.relMouse.y = _mouseY - _mouseY_prev;
+			ev.relMouse.x = status & STATUS_DOING_X ? _relMouseX : 0;
+			ev.relMouse.y = status & STATUS_DOING_Y ? _relMouseY : 0;
 			_events.push_back(ev);
-
-			_mouseX_prev = _mouseX;
-			_mouseY_prev = _mouseY;
 		}
 
 		for (int i = 0; i < 2; i++) {
@@ -1336,3 +1307,4 @@ void retroKeyEvent(bool down, unsigned keycode, uint32_t character, uint16_t key
 void retroReset() {
 	dynamic_cast<OSystem_RETRO *>(g_system)->Reset();
 }
+
