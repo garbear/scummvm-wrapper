@@ -772,7 +772,7 @@ public:
 
 	void updateMouseXY(float deltaAcc, float * cumulativeXYAcc, int doing_x){
 		int * mouseXY;
-		uint16 * screen_wh;
+		int16 * screen_wh;
 		int * relMouseXY;
 		int cumulativeXYAcc_int;
 		if (doing_x) {
