@@ -1131,7 +1131,13 @@ public:
 				// Reset accumulator when changing direction
 				_mouseYAcc = (_mouseYAcc > 0.0) ? 0.0 : _mouseYAcc;
 			}
+
 			deltaAcc = (float)y * mouse_speed;
+
+
+log_cb(RETRO_LOG_INFO, "\n[SCUMMVM TEST] y: %d\t_mouseY: %d\t_mouseYAcc: %.2f\tmouse_speed: %.2f\t_screen.h: %d\t_overlay.h: %d\t_gameScreen.h: %d\n", y,_mouseY,_mouseYAcc,mouse_speed,_screen.h,_overlay.h,_gameScreen.h);
+log_cb(RETRO_LOG_INFO, "\n[SCUMMVM TEST] x: %d\t_mouseX: %d\t_mouseXAcc: %.2f\tmouse_speed: %.2f\t_screen.w: %d\t_overlay.w: %d\t_gameScreen.w: %d\n\n", x,_mouseX,_mouseXAcc,mouse_speed,_screen.w,_overlay.w,_gameScreen.w);
+
 			updateMouseXY(deltaAcc, &_mouseYAcc, 0);
 		}
 
