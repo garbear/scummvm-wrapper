@@ -60,7 +60,15 @@ else
 fi
 
 # Apply collected actions
-[ $clone -eq 1 ] && git clone --depth 1 $TARGET_URL $SUBMODULE_FOLDER > /dev/null 2>&1
+if [ $clone -eq 1 ] ; then
+	mkdir -p $SUBMODULE_FOLDER
+	git -C $SUBMODULE_FOLDER init > /dev/null 2>&1
+	git -C $SUBMODULE_FOLDER remote add origin $TARGET_URL > /dev/null 2>&1
+	git -C $SUBMODULE_FOLDER fetch --depth 1 origin $TARGET_COMMIT > /dev/null 2>&1
+	git -C $SUBMODULE_FOLDER checkout FETCH_HEAD > /dev/null 2>&1
+	git -C $SUBMODULE_FOLDER submodule update --init --recursive --depth 1 > /dev/null 2>&1
+fi
+
 cd $SUBMODULE_FOLDER
 [ $reset -eq 1 ] && git reset --hard > /dev/null 2>&1
 
