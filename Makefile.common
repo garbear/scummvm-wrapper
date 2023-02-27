@@ -49,15 +49,6 @@ else
 endif
 
 ######################################################################
-# External dependencies settings
-######################################################################
-
-ifeq (,$(filter datafiles coreinfo,$(MAKECMDGOALS)))
-$(info Configuring dependencies...)
-include $(ROOT_PATH)/dependencies.mk
-endif
-
-######################################################################
 # ScummVM settings
 ######################################################################
 
@@ -87,6 +78,12 @@ ENABLE_VKEYBD     = 1
 USE_CLOUD        ?= 0
 STATIC_LINKING   ?= 0
 LITE             ?= 0
+
+# Dependencies setup
+ifeq (,$(filter datafiles coreinfo,$(MAKECMDGOALS)))
+$(info Configuring dependencies...)
+include $(ROOT_PATH)/dependencies.mk
+endif
 
 SCUMMVM_PATH         := $(DEPS_PATH)/$(DEPS_FOLDER_scummvm)
 srcdir               := $(SCUMMVM_PATH)
