@@ -19,7 +19,8 @@ DEPS_COMMIT_scummvm         := 57a9a801a62b6c26dd3fb5c05e415e5bcdfa300c
 
 submodule_test  = $(if $(shell result=$$($(SCRIPTS_PATH)/configure_submodules.sh $(DEPS_URL_$(1)) $(DEPS_COMMIT_$(1)) $(DEPS_PATH) $(DEBUG_ALLOW_DIRTY_SUBMODULES) $(DEPS_FOLDER_$(1))) ; { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),$(1))
 $(info Configuring submodules...)
-SUBMODULE_FAILED = $(strip $(foreach SUBMODULE,$(DEPS_SUBMODULES),$(call submodule_test,$(SUBMODULE))))
+SUBMODULE_FAILED = $(strip $(findstring $(foreach SUBMODULE,$(DEPS_SUBMODULES),$(call submodule_test,$(SUBMODULE))),$(DEPS_SUBMODULES)))
+
 ifneq ($(SUBMODULE_FAILED),)
    $(error Configuration of following submodules failed: $(SUBMODULE_FAILED))
 else
