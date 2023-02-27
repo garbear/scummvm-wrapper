@@ -4,7 +4,7 @@
 
 # Submodules functions
 DEPS_PATH                   := $(ROOT_PATH)/deps
-DEPS_SUBMODULES             := libretro-deps libretro-common
+DEPS_SUBMODULES             := libretro-deps libretro-common scummvm
 
 DEPS_FOLDER_libretro-deps   := libretro-deps
 DEPS_URL_libretro-deps      := https://github.com/libretro/libretro-deps
