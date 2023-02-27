@@ -1,5 +1,5 @@
 ######################################################################
-# Common settings
+# Common settings and defaults
 ######################################################################
 
 # Reset flags (DEFINES not reset as used in Makefile)
@@ -9,48 +9,6 @@ OBJS        :=
 DETECT_OBJS :=
 MODULES     :=
 $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE)) :=)
-
-DEBUG_ALLOW_DIRTY_SUBMODULES ?= 0
-
-# Common paths
-CORE_PATH            := $(ROOT_PATH)/src
-SCRIPTS_PATH         := $(ROOT_PATH)/scripts
-SHARED_MOD_MAKE      := $(ROOT_PATH)/shared_modules.mk
-
-# Core version shown in frontend
-GIT_TAG := $(shell cd $(ROOT_PATH) 2>/dev/null && git describe --tags 2>/dev/null)
-ifeq ($(GIT_TAG),)
-   GIT_HASH := $(shell cd $(ROOT_PATH) 2>/dev/null && git rev-parse --short HEAD 2>/dev/null)
-   ifneq ($(GIT_HASH),)
-      DEFINES += -DGIT_HASH=\"$(GIT_HASH)\"
-   endif
-else
-   DEFINES += -DGIT_TAG=\"$(GIT_TAG)\"
-endif
-
-# Nice name shown in frontend
-CORE_NAME = "ScummVM"
-# Pipe separated allowed file extensions that core can handle
-CORE_EXTENSIONS = "scummvm"
-
-DEFINES  += -DCORE_NAME=\"$(CORE_NAME)\" -DCORE_EXTENSIONS=\"$(CORE_EXTENSIONS)\"
-CXXFLAGS += -Wno-long-long -Wno-multichar -Wno-unknown-pragmas -Wno-reorder
-
-ifeq ($(USE_LIBCO), 1)
-   DEFINES += -DUSE_LIBCO
-else
-   LDFLAGS += -lpthread
-endif
-
-ifeq ($(TARGET_64BIT), 1)
-   DEFINES += -DSIZEOF_SIZE_T=8 -DSCUMM_64BITS
-else
-   DEFINES += -DSIZEOF_SIZE_T=4
-endif
-
-######################################################################
-# ScummVM settings
-######################################################################
 
 # Defaults
 USE_ZLIB         ?= 1
@@ -79,19 +37,50 @@ USE_CLOUD        ?= 0
 STATIC_LINKING   ?= 0
 LITE             ?= 0
 
-# Dependencies setup
-ifeq (,$(filter datafiles coreinfo,$(MAKECMDGOALS)))
-$(info Configuring dependencies...)
-include $(ROOT_PATH)/dependencies.mk
-endif
+DEBUG_ALLOW_DIRTY_SUBMODULES ?= 0
 
-SCUMMVM_PATH         := $(DEPS_PATH)/$(DEPS_FOLDER_scummvm)
+# Paths
+DEPS_PATH            := $(ROOT_PATH)/deps
+SCUMMVM_PATH         := $(DEPS_PATH)/scummvm
+CORE_PATH            := $(ROOT_PATH)/src
+SCRIPTS_PATH         := $(ROOT_PATH)/scripts
 srcdir               := $(SCUMMVM_PATH)
 VPATH                := $(SCUMMVM_PATH)
 UP_COMMON_MAKE       := $(SCUMMVM_PATH)/Makefile.common
+SHARED_MOD_MAKE      := $(ROOT_PATH)/shared_modules.mk
+
+# Core version shown in frontend
+GIT_TAG := $(shell cd $(ROOT_PATH) 2>/dev/null && git describe --tags 2>/dev/null)
+ifeq ($(GIT_TAG),)
+   GIT_HASH := $(shell cd $(ROOT_PATH) 2>/dev/null && git rev-parse --short HEAD 2>/dev/null)
+   ifneq ($(GIT_HASH),)
+      DEFINES += -DGIT_HASH=\"$(GIT_HASH)\"
+   endif
+else
+   DEFINES += -DGIT_TAG=\"$(GIT_TAG)\"
+endif
+
+# Nice name shown in frontend
+CORE_NAME = "ScummVM"
+# Pipe separated allowed file extensions that core can handle
+CORE_EXTENSIONS = "scummvm"
 
 INCLUDES += -I$(SCUMMVM_PATH)
 DEFINES  += -D__LIBRETRO__ -DNONSTANDARD_PORT -DUSE_RGB_COLOR -DUSE_OSD -DDISABLE_TEXT_CONSOLE -DFRONTEND_SUPPORTS_RGB565 -DUSE_TRANSLATION -DDETECTION_STATIC -DHAVE_CONFIG_H -DUSE_BINK -DUSE_LUA -DUSE_TINYGL -DENABLE_VKEYBD
+DEFINES  += -DCORE_NAME=\"$(CORE_NAME)\" -DCORE_EXTENSIONS=\"$(CORE_EXTENSIONS)\"
+CXXFLAGS += -Wno-long-long -Wno-multichar -Wno-unknown-pragmas -Wno-reorder
+
+ifeq ($(USE_LIBCO), 1)
+   DEFINES += -DUSE_LIBCO
+else
+   LDFLAGS += -lpthread
+endif
+
+ifeq ($(TARGET_64BIT), 1)
+   DEFINES += -DSIZEOF_SIZE_T=8 -DSCUMM_64BITS
+else
+   DEFINES += -DSIZEOF_SIZE_T=4
+endif
 
 ######################################################################
 # Libretro settings
@@ -109,7 +98,16 @@ LIBRETRO_OBJS := $(CORE_PATH)/libretro-os.o \
 OBJS += $(LIBRETRO_OBJS)
 
 ######################################################################
-# ScummVM modules settings
+# External dependencies settings
+######################################################################
+
+ifeq (,$(filter datafiles coreinfo,$(MAKECMDGOALS)))
+$(info Configuring dependencies...)
+include $(ROOT_PATH)/dependencies.mk
+endif
+
+######################################################################
+# Module settings
 ######################################################################
 
 INCLUDES    += -I$(SCUMMVM_PATH)/engines -I$(SCUMMVM_PATH)/backends/vkeybd
