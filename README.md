@@ -2,16 +2,16 @@
 
 Libretro core built directly from untouched mainline ScummVM source.
 
-ScummVM main repo is included as a submodule. To sync the libretro core it should be sufficient to update the submodule and build.
+ScummVM main repo is cloned at build time. To sync the libretro core it should be sufficient to update the reference commit in `dependencies.mk`.
 
-Submodule updates are generally committed following ScummVM official releases (though it can be updated to any commit upstream, considering that adjustment to core makefiles and sources in `src` may be required to build). First three fields of core tags are relevant to upstream ScummVM version, last is libretro core revision (e.g. v2.6.1.1 is ScummVM 2.6.1, core revision 1).
+Reference updates are generally committed following ScummVM official releases (though it can be updated to any commit upstream, considering that adjustment to core makefiles and sources in `src` may be required to build). First three fields of core tags are relevant to upstream ScummVM version, last is libretro core revision (e.g. v2.6.1.1 is ScummVM 2.6.1, core revision 1).
 
 Datafiles and themes bundle (`scummvm.zip`) and `core.info` files are built automatically based on current submodule source.
 
 ## Build
 To build the core with the default configuration, type in a shell the following:
 ```
-git clone --recursive https://github.com/libretro/scummvm
+git clone https://github.com/libretro/scummvm
 cd scummvm
 make
 ```
@@ -28,7 +28,7 @@ To build for Android:
 * make sure all needed sdk/ndk paths are included in PATH
 * type in a shell the following:
 ```
-git clone --recursive https://github.com/libretro/scummvm
+git clone https://github.com/libretro/scummvm
 cd scummvm/jni
 ndk-build
 ```

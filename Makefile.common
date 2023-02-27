@@ -40,7 +40,8 @@ LITE             ?= 0
 DEBUG_ALLOW_DIRTY_SUBMODULES ?= 0
 
 # Paths
-SCUMMVM_PATH         := $(ROOT_PATH)/scummvm
+DEPS_PATH            := $(ROOT_PATH)/deps
+SCUMMVM_PATH         := $(DEPS_PATH)/scummvm
 CORE_PATH            := $(ROOT_PATH)/src
 SCRIPTS_PATH         := $(ROOT_PATH)/scripts
 srcdir               := $(SCUMMVM_PATH)
