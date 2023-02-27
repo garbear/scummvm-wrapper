@@ -14,6 +14,10 @@ DEPS_FOLDER_libretro-common := libretro-common
 DEPS_URL_libretro-common    := https://github.com/libretro/libretro-common
 DEPS_COMMIT_libretro-common := 20a43ba79fe6b4ec094b3b20b7bc88f4cfe916fa
 
+DEPS_FOLDER_scummvm         := scummvm
+DEPS_URL_scummvm            := https://github.com/scummvm/scummvm
+DEPS_COMMIT_scummvm         := da2dc011f8445ef3a530b2e86ce38be9d733a982
+
 submodule_test  = $(if $(shell result=$$($(SCRIPTS_PATH)/configure_submodules.sh $(DEPS_URL_$(1)) $(DEPS_COMMIT_$(1)) $(DEPS_PATH) $(DEBUG_ALLOW_DIRTY_SUBMODULES) $(DEPS_FOLDER_$(1))) ; { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),$(1))
 $(info Configuring submodules...)
 SUBMODULE_FAILED = $(strip $(foreach SUBMODULE,$(DEPS_SUBMODULES),$(call submodule_test,$(SUBMODULE))))

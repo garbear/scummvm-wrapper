@@ -1,4 +1,13 @@
 ######################################################################
+# External dependencies settings
+######################################################################
+
+ifeq (,$(filter datafiles coreinfo,$(MAKECMDGOALS)))
+$(info Configuring dependencies...)
+include $(ROOT_PATH)/dependencies.mk
+endif
+
+######################################################################
 # Common settings and defaults
 ######################################################################
 
@@ -40,7 +49,7 @@ LITE             ?= 0
 DEBUG_ALLOW_DIRTY_SUBMODULES ?= 0
 
 # Paths
-SCUMMVM_PATH         := $(ROOT_PATH)/scummvm
+SCUMMVM_PATH         := $(DEPS_PATH)/$(DEPS_FOLDER_scummvm)
 CORE_PATH            := $(ROOT_PATH)/src
 SCRIPTS_PATH         := $(ROOT_PATH)/scripts
 srcdir               := $(SCUMMVM_PATH)
@@ -95,15 +104,6 @@ LIBRETRO_OBJS := $(CORE_PATH)/libretro-os.o \
 	$(CORE_PATH)/libretro-threads.o
 
 OBJS += $(LIBRETRO_OBJS)
-
-######################################################################
-# External dependencies settings
-######################################################################
-
-ifeq (,$(filter datafiles coreinfo,$(MAKECMDGOALS)))
-$(info Configuring dependencies...)
-include $(ROOT_PATH)/dependencies.mk
-endif
 
 ######################################################################
 # Module settings
