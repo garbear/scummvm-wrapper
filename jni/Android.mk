@@ -15,7 +15,7 @@ include $(ROOT_PATH)/Makefile.common
 include $(addprefix $(SCUMMVM_PATH)/, $(addsuffix /module.mk,$(MODULES)))
 OBJS_MODULES := $(addprefix $(SCUMMVM_PATH)/, $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE))))
 
-COREFLAGS := $(DEFINES) -DUSE_CXX11
+COREFLAGS := $(DEFINES) -DUSE_CXX11 -D__ANDROID__
 
 ifeq ($(TARGET_ARCH),arm)
   COREFLAGS += -D_ARM_ASSEM_
