@@ -13,7 +13,9 @@ endif
 include $(ROOT_PATH)/Makefile.common
 
 include $(addprefix $(SCUMMVM_PATH)/, $(addsuffix /module.mk,$(MODULES)))
-OBJS_MODULES := $(addprefix $(SCUMMVM_PATH)/, $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE))))
+
+OBJS_MODULES := $(addprefix $(SCUMMVM_PATH)/, $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE)))) \
+	$(CORE_PATH)/android-fs-factory.o
 
 COREFLAGS := $(DEFINES) -DUSE_CXX11
 
