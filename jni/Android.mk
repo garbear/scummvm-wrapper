@@ -13,9 +13,16 @@ endif
 include $(ROOT_PATH)/Makefile.common
 
 include $(addprefix $(SCUMMVM_PATH)/, $(addsuffix /module.mk,$(MODULES)))
+
+# TODO: improve retrieving of the following from backends/module.mk
+MODULE_OBJS_backends += \
+	backends/fs/android/android-fs-factory.o \
+	backends/fs/android/android-posix-fs.o \
+	backends/fs/android/android-saf-fs.o
+
 OBJS_MODULES := $(addprefix $(SCUMMVM_PATH)/, $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE))))
 
-COREFLAGS := $(DEFINES) -DUSE_CXX11 -D__ANDROID__
+COREFLAGS := $(DEFINES) -DUSE_CXX11
 
 ifeq ($(TARGET_ARCH),arm)
   COREFLAGS += -D_ARM_ASSEM_
