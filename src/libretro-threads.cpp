@@ -166,7 +166,7 @@ bool retro_init_emu_thread(void) {
 }
 
 void retro_deinit_emu_thread() {
-	if (!retro_emu_thread_initialized)
+	if (!retro_emu_thread_initialized())
 		return;
 	if (!retro_current_thread_is_main())
 		retro_switch_to_main_thread();
