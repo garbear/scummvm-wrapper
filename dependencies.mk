@@ -15,7 +15,7 @@ DEPS_COMMIT_libretro-common := 20a43ba79fe6b4ec094b3b20b7bc88f4cfe916fa
 
 DEPS_FOLDER_scummvm         := $(notdir $(SCUMMVM_PATH))
 DEPS_URL_scummvm            := https://github.com/scummvm/scummvm
-DEPS_COMMIT_scummvm         := 50c38f5ce990cc944054ad861064352029d2f5e6
+DEPS_COMMIT_scummvm         := bb12e41290fc6144386d8dad5bef3c00a376b38b
 
 submodule_test  = $(if $(shell result=$$($(SCRIPTS_PATH)/configure_submodules.sh $(DEPS_URL_$(1)) $(DEPS_COMMIT_$(1)) $(DEPS_PATH) $(DEBUG_ALLOW_DIRTY_SUBMODULES) $(DEPS_FOLDER_$(1))) ; { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),$(1))
 $(info Configuring submodules...)
