@@ -121,6 +121,8 @@ private:
 	virtual void setFlags();
 };
 
+
+#ifndef __ANDROID__ //In this case definition in backends/fs/posix/posix-fs.h is used
 namespace Posix {
 
 /**
@@ -134,5 +136,5 @@ namespace Posix {
 bool assureDirectoryExists(const Common::String &dir, const char *prefix = nullptr);
 
 } // End of namespace Posix
-
+#endif
 #endif

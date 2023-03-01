@@ -7,8 +7,8 @@ INCLUDES    :=
 OBJS_DEPS   :=
 OBJS        :=
 DETECT_OBJS :=
-MODULES     :=
 $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE)) :=)
+MODULES     :=
 
 # Defaults
 USE_ZLIB         ?= 1
@@ -32,6 +32,7 @@ POSIX            ?= 1
 NO_HIGH_DEF      ?= 0
 NO_WIP           ?= 1
 USE_LIBCO        ?= 1
+USE_RGB_COLOR    ?= 1
 ENABLE_VKEYBD     = 1
 USE_CLOUD        ?= 0
 STATIC_LINKING   ?= 0

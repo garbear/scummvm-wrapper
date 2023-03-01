@@ -14,13 +14,8 @@ include $(ROOT_PATH)/Makefile.common
 
 include $(addprefix $(SCUMMVM_PATH)/, $(addsuffix /module.mk,$(MODULES)))
 
-# TODO: improve retrieving of the following from backends/module.mk
-MODULE_OBJS-backends += \
-	backends/fs/android/android-fs-factory.o \
-	backends/fs/android/android-posix-fs.o \
-	backends/fs/android/android-saf-fs.o
-
-OBJS_MODULES := $(addprefix $(SCUMMVM_PATH)/, $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE))))
+OBJS_MODULES := $(addprefix $(SCUMMVM_PATH)/, $(foreach MODULE,$(MODULES),$(MODULE_OBJS-$(MODULE)))) \
+	$(CORE_PATH)/android-fs-factory.o
 
 COREFLAGS := $(DEFINES) -DUSE_CXX11
 
