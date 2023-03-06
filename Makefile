@@ -152,7 +152,8 @@ else ifeq ($(platform), wiiu)
    TARGET := $(TARGET_NAME)_libretro_wiiu.a
    CC = $(DEVKITPPC)/bin/powerpc-eabi-gcc$(EXE_EXT)
    CXX = $(DEVKITPPC)/bin/powerpc-eabi-g++$(EXE_EXT)
-   AR = $(DEVKITPPC)/bin/powerpc-eabi-ar$(EXE_EXT)
+   AR = $(DEVKITPPC)/bin/powerpc-eabi-ar$(EXE_EXT) rcs
+   AR_ALONE = $(DEVKITPPC)/bin/powerpc-eabi-ar$(EXE_EXT)
    DEFINES += -DGEKKO -mwup -mcpu=750 -meabi -mhard-float -D__POWERPC__ -D__ppc__ -DRETRO_IS_BIG_ENDIAN=1 -DRETRO_IS_LITTLE_ENDIAN=0
    DEFINES += -U__INT32_TYPE__ -U __UINT32_TYPE__ -D__INT32_TYPE__=int
    DEFINES += -DHAVE_STRTOUL -DWIIU
@@ -559,7 +560,12 @@ else
 endif
 endif
 
-ifeq ($(platform), libnx)
+ifeq ($(platform), wiiu)
+$(TARGET): $(OBJS) libdeps.a libdetect.a
+       $(MKDIR) libtemp
+       $(CP) $+ libtemp/
+       $(AR_ALONE) -M < $(ROOT_PATH)/script.mri
+else ifeq ($(platform), libnx)
 $(TARGET): libnx-ln $(OBJS) libdeps.a libdetect.a
 	$(MKDIR) libtemp
 	cp $+ libtemp/
