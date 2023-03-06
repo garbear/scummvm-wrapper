@@ -562,9 +562,9 @@ endif
 
 ifeq ($(platform), wiiu)
 $(TARGET): $(OBJS) libdeps.a libdetect.a
-       $(MKDIR) libtemp
-       $(CP) $+ libtemp/
-       $(AR_ALONE) -M < $(ROOT_PATH)/script.mri
+	$(MKDIR) libtemp
+	$(CP) $+ libtemp/
+	$(AR_ALONE) -M < $(ROOT_PATH)/script.mri
 else ifeq ($(platform), libnx)
 $(TARGET): libnx-ln $(OBJS) libdeps.a libdetect.a
 	$(MKDIR) libtemp
