@@ -36,39 +36,41 @@ namespace Common {
 DECLARE_SINGLETON(AndroidFilesystemFactory);
 }
 
-AndroidFilesystemFactory::AndroidFilesystemFactory() : _withSAF(false), _config(this) {
-}
+AndroidFilesystemFactory::AndroidFilesystemFactory()
+    : _withSAF(false), _config(this) {}
 
-void AndroidFilesystemFactory::initSAF() {
-	_withSAF = false;
-}
+void AndroidFilesystemFactory::initSAF() { _withSAF = false; }
 
 AbstractFSNode *AndroidFilesystemFactory::makeRootFileNode() const {
-	return new LibRetroFilesystemNode("/");
+  return new LibRetroFilesystemNode("/");
 }
 
 AbstractFSNode *AndroidFilesystemFactory::makeCurrentDirectoryFileNode() const {
-	return new LibRetroFilesystemNode("/");
+  return new LibRetroFilesystemNode("/");
 }
 
-AbstractFSNode *AndroidFilesystemFactory::makeFileNodePath(const Common::String &path) const {
-	assert(!path.empty());
-	return new LibRetroFilesystemNode(path);
+AbstractFSNode *
+AndroidFilesystemFactory::makeFileNodePath(const Common::String &path) const {
+  assert(!path.empty());
+  return new LibRetroFilesystemNode(path);
 }
 
-AndroidFilesystemFactory::Config::Config(const AndroidFilesystemFactory *factory) {
+AndroidFilesystemFactory::Config::Config(
+    const AndroidFilesystemFactory *factory) {}
+
+void AndroidFilesystemFactory::getSAFTrees(AbstractFSList &list,
+                                           bool allowSAFadd) const {
+  return;
 }
 
-void AndroidFilesystemFactory::getSAFTrees(AbstractFSList &list, bool allowSAFadd) const {
-	return;
+bool AndroidFilesystemFactory::Config::getDrives(AbstractFSList &list,
+                                                 bool hidden) const {
+  return false;
 }
 
-bool AndroidFilesystemFactory::Config::getDrives(AbstractFSList &list, bool hidden) const {
-	return false;
-}
-
-bool AndroidFilesystemFactory::Config::isDrive(const Common::String &path) const {
-	return false;
+bool AndroidFilesystemFactory::Config::isDrive(
+    const Common::String &path) const {
+  return false;
 }
 
 #endif
