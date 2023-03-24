@@ -742,7 +742,7 @@ public:
 	}
 
 	virtual Common::String getDefaultConfigFileName() {
-		return s_systemDir + "/scummvm.ini";
+		return s_saveDir + "/scummvm.ini";
 	}
 
 	virtual void logMessage(LogMessageType::Type type, const char *message) {
