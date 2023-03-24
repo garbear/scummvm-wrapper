@@ -4,37 +4,38 @@
  * are too numerous to list here. Please refer to the COPYRIGHT
  * file distributed with this source distribution.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
-
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
- USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
 
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 
-#include <list>
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <features/features_cpu.h>
+#include <libretro.h>
 #include <retro_inline.h>
 #include <retro_miscellaneous.h>
 
 #include "audio/mixer_intern.h"
 #include "backends/base-backend.h"
+#include "base/commandLine.h"
 #include "common/config-manager.h"
 #include "common/events.h"
-#include "surface.libretro.h"
+#include "common/list.h"
+#include "common/tokenizer.h"
 
 #if defined(_WIN32)
 #include "backends/fs/windows/windows-fs-factory.h"
@@ -48,6 +49,7 @@
 #include "backends/timer/default/default-timer.h"
 #include "graphics/colormasks.h"
 #include "graphics/palette.h"
+#include "graphics/surface.h"
 #if defined(_WIN32)
 #include <direct.h>
 #ifdef _XBOX
@@ -63,9 +65,8 @@
 #include <time.h>
 #endif
 
-#include "features/features_cpu.h"
-#include "libretro.h"
-#include "retro_emu_thread.h"
+#include "libretro-threads.h"
+#include "os.h"
 
 extern retro_log_printf_t log_cb;
 
@@ -112,8 +113,8 @@ static INLINE void blit_uint8_uint16_fast(Graphics::Surface &aOut,
     if (i >= aOut.h)
       continue;
 
-    uint8_t *const in = (uint8_t *)aIn.pixels + (i * aIn.w);
-    uint16_t *const out = (uint16_t *)aOut.pixels + (i * aOut.w);
+    uint8_t *const in = (uint8_t *)aIn.getPixels() + (i * aIn.w);
+    uint16_t *const out = (uint16_t *)aOut.getPixels() + (i * aOut.w);
 
     for (int j = 0; j < aIn.w; j++) {
       if (j >= aOut.w)
@@ -145,8 +146,8 @@ static INLINE void blit_uint32_uint16(Graphics::Surface &aOut,
     if (i >= aOut.h)
       continue;
 
-    uint32_t *const in = (uint32_t *)aIn.pixels + (i * aIn.w);
-    uint16_t *const out = (uint16_t *)aOut.pixels + (i * aOut.w);
+    uint32_t *const in = (uint32_t *)aIn.getPixels() + (i * aIn.w);
+    uint16_t *const out = (uint16_t *)aOut.getPixels() + (i * aOut.w);
 
     for (int j = 0; j < aIn.w; j++) {
       if (j >= aOut.w)
@@ -171,8 +172,8 @@ static INLINE void blit_uint16_uint16(Graphics::Surface &aOut,
     if (i >= aOut.h)
       continue;
 
-    uint16_t *const in = (uint16_t *)aIn.pixels + (i * aIn.w);
-    uint16_t *const out = (uint16_t *)aOut.pixels + (i * aOut.w);
+    uint16_t *const in = (uint16_t *)aIn.getPixels() + (i * aIn.w);
+    uint16_t *const out = (uint16_t *)aOut.getPixels() + (i * aOut.w);
 
     for (int j = 0; j < aIn.w; j++) {
       if (j >= aOut.w)
@@ -197,8 +198,8 @@ static void blit_uint8_uint16(Graphics::Surface &aOut,
     if ((i + aY) < 0 || (i + aY) >= aOut.h)
       continue;
 
-    uint8_t *const in = (uint8_t *)aIn.pixels + (i * aIn.w);
-    uint16_t *const out = (uint16_t *)aOut.pixels + ((i + aY) * aOut.w);
+    uint8_t *const in = (uint8_t *)aIn.getPixels() + (i * aIn.w);
+    uint16_t *const out = (uint16_t *)aOut.getPixels() + ((i + aY) * aOut.w);
 
     for (int j = 0; j < aIn.w; j++) {
       if ((j + aX) < 0 || (j + aX) >= aOut.w)
@@ -225,8 +226,8 @@ static void blit_uint16_uint16(Graphics::Surface &aOut,
     if ((i + aY) < 0 || (i + aY) >= aOut.h)
       continue;
 
-    uint16_t *const in = (uint16_t *)aIn.pixels + (i * aIn.w);
-    uint16_t *const out = (uint16_t *)aOut.pixels + ((i + aY) * aOut.w);
+    uint16_t *const in = (uint16_t *)aIn.getPixels() + (i * aIn.w);
+    uint16_t *const out = (uint16_t *)aOut.getPixels() + ((i + aY) * aOut.w);
 
     for (int j = 0; j < aIn.w; j++) {
       if ((j + aX) < 0 || (j + aX) >= aOut.w)
@@ -250,8 +251,8 @@ static void blit_uint32_uint16(Graphics::Surface &aOut,
     if ((i + aY) < 0 || (i + aY) >= aOut.h)
       continue;
 
-    uint32_t *const in = (uint32_t *)aIn.pixels + (i * aIn.w);
-    uint16_t *const out = (uint16_t *)aOut.pixels + ((i + aY) * aOut.w);
+    uint32_t *const in = (uint32_t *)aIn.getPixels() + (i * aIn.w);
+    uint16_t *const out = (uint16_t *)aOut.getPixels() + ((i + aY) * aOut.w);
 
     for (int j = 0; j < aIn.w; j++) {
       if ((j + aX) < 0 || (j + aX) >= aOut.w)
@@ -324,7 +325,7 @@ static Common::String s_saveDir;
 #define SURF_ASHIFT 15
 #endif
 
-std::list<Common::Event> _events;
+Common::List<Common::Event> _events;
 
 class OSystem_RETRO : public EventsBaseBackend, public PaletteManager {
 public:
@@ -335,6 +336,7 @@ public:
 
   Graphics::Surface _overlay;
   bool _overlayVisible;
+  bool _overlayInGUI;
 
   Graphics::Surface _mouseImage;
   RetroPalette _mousePalette;
@@ -342,6 +344,8 @@ public:
   bool _mouseVisible;
   int _mouseX;
   int _mouseY;
+  int _relMouseX;
+  int _relMouseY;
   float _mouseXAcc;
   float _mouseYAcc;
   float _dpadXAcc;
@@ -497,14 +501,14 @@ public:
   virtual void copyRectToScreen(const void *buf, int pitch, int x, int y, int w,
                                 int h) {
     const uint8_t *src = (const uint8_t *)buf;
-    uint8_t *pix = (uint8_t *)_gameScreen.pixels;
+    uint8_t *pix = (uint8_t *)_gameScreen.getPixels();
     copyRectToSurface(pix, _gameScreen.pitch, src, pitch, x, y, w, h,
                       _gameScreen.format.bytesPerPixel);
   }
 
   virtual void updateScreen() {
     const Graphics::Surface &srcSurface =
-        (_overlayVisible) ? _overlay : _gameScreen;
+        (_overlayInGUI) ? _overlay : _gameScreen;
     if (srcSurface.w && srcSurface.h) {
       switch (srcSurface.format.bytesPerPixel) {
       case 1:
@@ -555,16 +559,22 @@ public:
     // TODO
   }
 
-  virtual void showOverlay() { _overlayVisible = true; }
+  virtual void showOverlay(bool inGUI) {
+    _overlayVisible = true;
+    _overlayInGUI = inGUI;
+  }
 
-  virtual void hideOverlay() { _overlayVisible = false; }
+  virtual void hideOverlay() {
+    _overlayVisible = false;
+    _overlayInGUI = false;
+  }
 
   virtual void clearOverlay() {
     _overlay.fillRect(Common::Rect(_overlay.w, _overlay.h), 0);
   }
 
   virtual void grabOverlay(Graphics::Surface &surface) {
-    const unsigned char *src = (unsigned char *)_overlay.pixels;
+    const unsigned char *src = (unsigned char *)_overlay.getPixels();
     unsigned char *dst = (byte *)surface.getPixels();
     ;
     unsigned i = RES_H_OVERLAY;
@@ -579,7 +589,7 @@ public:
   virtual void copyRectToOverlay(const void *buf, int pitch, int x, int y,
                                  int w, int h) {
     const uint8_t *src = (const uint8_t *)buf;
-    uint8_t *pix = (uint8_t *)_overlay.pixels;
+    uint8_t *pix = (uint8_t *)_overlay.getPixels();
     copyRectToSurface(pix, _overlay.pitch, src, pitch, x, y, w, h,
                       _overlay.format.bytesPerPixel);
   }
@@ -615,7 +625,7 @@ public:
       _mouseImage.create(w, h, mformat);
     }
 
-    memcpy(_mouseImage.pixels, buf, h * _mouseImage.pitch);
+    memcpy(_mouseImage.getPixels(), buf, h * _mouseImage.pitch);
 
     _mouseHotspotX = hotspotX;
     _mouseHotspotY = hotspotY;
@@ -630,12 +640,7 @@ public:
 
   void retroCheckThread(uint32 offset = 0) {
     if (_threadExitTime <= (getMillis() + offset)) {
-#if defined(USE_LIBCO)
-      extern void retro_leave_thread();
-      retro_leave_thread();
-#else
-      retro_switch_thread();
-#endif
+      retro_switch_to_main_thread();
       _threadExitTime = getMillis() + 10;
     }
   }
@@ -754,7 +759,7 @@ public:
   virtual Audio::Mixer *getMixer() { return _mixer; }
 
   virtual Common::String getDefaultConfigFileName() {
-    return s_systemDir + "/scummvm.ini";
+    return s_saveDir + "/scummvm.ini";
   }
 
   virtual void logMessage(LogMessageType::Type type, const char *message) {
@@ -766,7 +771,7 @@ public:
 
   const Graphics::Surface &getScreen() {
     const Graphics::Surface &srcSurface =
-        (_overlayVisible) ? _overlay : _gameScreen;
+        (_overlayInGUI) ? _overlay : _gameScreen;
 
     if (srcSurface.w != _screen.w || srcSurface.h != _screen.h) {
 #ifdef FRONTEND_SUPPORTS_RGB565
@@ -785,14 +790,48 @@ public:
 #define BASE_CURSOR_SPEED 4
 #define PI 3.141592653589793238
 
+  void updateMouseXY(float deltaAcc, float *cumulativeXYAcc, int doing_x) {
+    int *mouseXY;
+    int16 *screen_wh;
+    int *relMouseXY;
+    int cumulativeXYAcc_int;
+    if (doing_x) {
+      mouseXY = &_mouseX;
+      screen_wh = &_screen.w;
+      relMouseXY = &_relMouseX;
+    } else {
+      mouseXY = &_mouseY;
+      screen_wh = &_screen.h;
+      relMouseXY = &_relMouseY;
+    }
+    *cumulativeXYAcc += deltaAcc;
+    cumulativeXYAcc_int = (int)*cumulativeXYAcc;
+    if (cumulativeXYAcc_int != 0) {
+      // Set mouse position
+      *mouseXY += cumulativeXYAcc_int;
+      *mouseXY = (*mouseXY < 0) ? 0 : *mouseXY;
+      *mouseXY = (*mouseXY >= *screen_wh) ? *screen_wh : *mouseXY;
+      // Update accumulator
+      *cumulativeXYAcc -= (float)cumulativeXYAcc_int;
+    }
+    *relMouseXY = (int)deltaAcc;
+  }
+
   void processMouse(retro_input_state_t aCallback, int device,
                     float gampad_cursor_speed, float gamepad_acceleration_time,
                     bool analog_response_is_quadratic, int analog_deadzone,
                     float mouse_speed) {
+    enum processMouse_status {
+      STATUS_DOING_JOYSTICK = (1 << 0),
+      STATUS_DOING_MOUSE = (1 << 1),
+      STATUS_DOING_X = (1 << 2),
+      STATUS_DOING_Y = (1 << 3)
+    };
+    uint8_t status = 0;
     int16_t joy_x, joy_y, joy_rx, joy_ry, x, y;
     float analog_amplitude_x, analog_amplitude_y;
-    int mouse_acc_int;
-    bool do_joystick, do_mouse, down;
+    float deltaAcc;
+    bool down;
     float screen_adjusted_cursor_speed =
         (float)_screen.w /
         320.0f; // Dpad cursor speed should always be based off a 320 wide
@@ -852,8 +891,7 @@ public:
       adjusted_cursor_speed = adjusted_cursor_speed * (1.0f / 5.0f);
     }
 
-    down = false;
-    do_joystick = false;
+    status = 0;
     x = aCallback(0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_X);
     y = aCallback(0, RETRO_DEVICE_MOUSE, 0, RETRO_DEVICE_ID_MOUSE_Y);
     joy_x = aCallback(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT,
@@ -863,6 +901,7 @@ public:
 
     // Left Analog X Axis
     if (joy_x > analog_deadzone || joy_x < -analog_deadzone) {
+      status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_X);
       if (joy_x > analog_deadzone) {
         // Reset accumulator when changing direction
         _mouseXAcc = (_mouseXAcc < 0.0) ? 0.0 : _mouseXAcc;
@@ -883,22 +922,13 @@ public:
           analog_amplitude_x = analog_amplitude_x * analog_amplitude_x;
       }
       // printf("analog_amplitude_x: %f\n", analog_amplitude_x);
-      _mouseXAcc += analog_amplitude_x * adjusted_cursor_speed;
-      // Get integer part of accumulator
-      mouse_acc_int = (int)_mouseXAcc;
-      if (mouse_acc_int != 0) {
-        // Set mouse position
-        _mouseX += mouse_acc_int;
-        _mouseX = (_mouseX < 0) ? 0 : _mouseX;
-        _mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-        do_joystick = true;
-        // Update accumulator
-        _mouseXAcc -= (float)mouse_acc_int;
-      }
+      deltaAcc = analog_amplitude_x * adjusted_cursor_speed;
+      updateMouseXY(deltaAcc, &_mouseXAcc, 1);
     }
 
     // Left Analog Y Axis
     if (joy_y > analog_deadzone || joy_y < -analog_deadzone) {
+      status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_Y);
       if (joy_y > analog_deadzone) {
         // Reset accumulator when changing direction
         _mouseYAcc = (_mouseYAcc < 0.0) ? 0.0 : _mouseYAcc;
@@ -919,18 +949,8 @@ public:
           analog_amplitude_y = analog_amplitude_y * analog_amplitude_y;
       }
       // printf("analog_amplitude_y: %f\n", analog_amplitude_y);
-      _mouseYAcc += analog_amplitude_y * adjusted_cursor_speed;
-      // Get integer part of accumulator
-      mouse_acc_int = (int)_mouseYAcc;
-      if (mouse_acc_int != 0) {
-        // Set mouse position
-        _mouseY += mouse_acc_int;
-        _mouseY = (_mouseY < 0) ? 0 : _mouseY;
-        _mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-        do_joystick = true;
-        // Update accumulator
-        _mouseYAcc -= (float)mouse_acc_int;
-      }
+      deltaAcc = analog_amplitude_y * adjusted_cursor_speed;
+      updateMouseXY(deltaAcc, &_mouseYAcc, 0);
     }
 
     if (device == RETRO_DEVICE_JOYPAD) {
@@ -944,53 +964,38 @@ public:
           aCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN);
 
       if (dpadLeft || dpadRight) {
+        status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_X);
         _dpadXVel = MIN(_dpadXVel + inverse_acceleration_time, 1.0f);
+
+        if (dpadLeft) {
+          deltaAcc = -(_dpadXVel * adjusted_cursor_speed);
+          _dpadXAcc = _dpadXAcc < deltaAcc ? _dpadXAcc : 0.0f;
+        } else { // dpadRight
+          deltaAcc = _dpadXVel * adjusted_cursor_speed;
+          _dpadXAcc = _dpadXAcc > deltaAcc ? _dpadXAcc : 0.0f;
+        }
+
+        updateMouseXY(deltaAcc, &_dpadXAcc, 1);
       } else {
         _dpadXVel = 0.0f;
       }
 
       if (dpadUp || dpadDown) {
+        status |= (STATUS_DOING_JOYSTICK | STATUS_DOING_Y);
         _dpadYVel = MIN(_dpadYVel + inverse_acceleration_time, 1.0f);
+
+        if (dpadUp) {
+          deltaAcc = -(_dpadYVel * adjusted_cursor_speed);
+          _dpadYAcc = _dpadYAcc < deltaAcc ? _dpadYAcc : 0.0f;
+        } else { // dpadDown
+          deltaAcc = _dpadYVel * adjusted_cursor_speed;
+          _dpadYAcc = _dpadYAcc > deltaAcc ? _dpadYAcc : 0.0f;
+        }
+
+        updateMouseXY(deltaAcc, &_dpadYAcc, 0);
+
       } else {
         _dpadYVel = 0.0f;
-      }
-
-      if (dpadLeft) {
-        _dpadXAcc = MIN(_dpadXAcc - _dpadXVel * adjusted_cursor_speed, 0.0f);
-        _mouseX += (int)_dpadXAcc;
-        _dpadXAcc -= (float)(int)_dpadXAcc;
-
-        _mouseX = (_mouseX < 0) ? 0 : _mouseX;
-        _mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-        do_joystick = true;
-      }
-      if (dpadRight) {
-        _dpadXAcc = MAX(_dpadXAcc + _dpadXVel * adjusted_cursor_speed, 0.0f);
-        _mouseX += (int)_dpadXAcc;
-        _dpadXAcc -= (float)(int)_dpadXAcc;
-
-        _mouseX = (_mouseX < 0) ? 0 : _mouseX;
-        _mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-        do_joystick = true;
-      }
-
-      if (dpadUp) {
-        _dpadYAcc = MIN(_dpadYAcc - _dpadYVel * adjusted_cursor_speed, 0.0f);
-        _mouseY += (int)_dpadYAcc;
-        _dpadYAcc -= (float)(int)_dpadYAcc;
-
-        _mouseY = (_mouseY < 0) ? 0 : _mouseY;
-        _mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-        do_joystick = true;
-      }
-      if (dpadDown) {
-        _dpadYAcc = MAX(_dpadYAcc + _dpadYVel * adjusted_cursor_speed, 0.0f);
-        _mouseY += (int)_dpadYAcc;
-        _dpadYAcc -= (float)(int)_dpadYAcc;
-
-        _mouseY = (_mouseY < 0) ? 0 : _mouseY;
-        _mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-        do_joystick = true;
       }
 
       if (aCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START)) {
@@ -1045,11 +1050,13 @@ public:
 
 #endif
 
-    if (do_joystick) {
+    if (status & STATUS_DOING_JOYSTICK) {
       Common::Event ev;
       ev.type = Common::EVENT_MOUSEMOVE;
       ev.mouse.x = _mouseX;
       ev.mouse.y = _mouseY;
+      ev.relMouse.x = status & STATUS_DOING_X ? _relMouseX : 0;
+      ev.relMouse.y = status & STATUS_DOING_Y ? _relMouseY : 0;
       _events.push_back(ev);
     }
 
@@ -1165,9 +1172,9 @@ public:
     }
 
     // Process input from physical mouse
-    do_mouse = false;
     // > X Axis
     if (x != 0) {
+      status |= (STATUS_DOING_MOUSE | STATUS_DOING_X);
       if (x > 0) {
         // Reset accumulator when changing direction
         _mouseXAcc = (_mouseXAcc < 0.0) ? 0.0 : _mouseXAcc;
@@ -1176,22 +1183,12 @@ public:
         // Reset accumulator when changing direction
         _mouseXAcc = (_mouseXAcc > 0.0) ? 0.0 : _mouseXAcc;
       }
-      // Update accumulator
-      _mouseXAcc += (float)x * mouse_speed;
-      // Get integer part of accumulator
-      mouse_acc_int = (int)_mouseXAcc;
-      if (mouse_acc_int != 0) {
-        // Set mouse position
-        _mouseX += mouse_acc_int;
-        _mouseX = (_mouseX < 0) ? 0 : _mouseX;
-        _mouseX = (_mouseX >= _screen.w) ? _screen.w : _mouseX;
-        do_mouse = true;
-        // Update accumulator
-        _mouseXAcc -= (float)mouse_acc_int;
-      }
+      deltaAcc = (float)x * mouse_speed;
+      updateMouseXY(deltaAcc, &_mouseXAcc, 1);
     }
     // > Y Axis
     if (y != 0) {
+      status |= (STATUS_DOING_MOUSE | STATUS_DOING_Y);
       if (y > 0) {
         // Reset accumulator when changing direction
         _mouseYAcc = (_mouseYAcc < 0.0) ? 0.0 : _mouseYAcc;
@@ -1200,26 +1197,17 @@ public:
         // Reset accumulator when changing direction
         _mouseYAcc = (_mouseYAcc > 0.0) ? 0.0 : _mouseYAcc;
       }
-      // Update accumulator
-      _mouseYAcc += (float)y * mouse_speed;
-      // Get integer part of accumulator
-      mouse_acc_int = (int)_mouseYAcc;
-      if (mouse_acc_int != 0) {
-        // Set mouse position
-        _mouseY += mouse_acc_int;
-        _mouseY = (_mouseY < 0) ? 0 : _mouseY;
-        _mouseY = (_mouseY >= _screen.h) ? _screen.h : _mouseY;
-        do_mouse = true;
-        // Update accumulator
-        _mouseYAcc -= (float)mouse_acc_int;
-      }
+      deltaAcc = (float)y * mouse_speed;
+      updateMouseXY(deltaAcc, &_mouseYAcc, 0);
     }
 
-    if (do_mouse) {
+    if (status & STATUS_DOING_MOUSE) {
       Common::Event ev;
       ev.type = Common::EVENT_MOUSEMOVE;
       ev.mouse.x = _mouseX;
       ev.mouse.y = _mouseY;
+      ev.relMouse.x = status & STATUS_DOING_X ? _relMouseX : 0;
+      ev.relMouse.y = status & STATUS_DOING_Y ? _relMouseY : 0;
       _events.push_back(ev);
     }
 
@@ -1262,9 +1250,89 @@ public:
     _events.push_back(ev);
   }
 
-  void postQuit() {
+  bool parseGameName(const Common::String &gameName, Common::String &engineId,
+                     Common::String &gameId) {
+    Common::StringTokenizer tokenizer(gameName, ":");
+    Common::String token1, token2;
+
+    if (!tokenizer.empty()) {
+      token1 = tokenizer.nextToken();
+    }
+
+    if (!tokenizer.empty()) {
+      token2 = tokenizer.nextToken();
+    }
+
+    if (!tokenizer.empty()) {
+      return false; // Stray colon
+    }
+
+    if (!token1.empty() && !token2.empty()) {
+      engineId = token1;
+      gameId = token2;
+      return true;
+    } else if (!token1.empty()) {
+      engineId.clear();
+      gameId = token1;
+      return true;
+    }
+
+    return false;
+  }
+
+  int TestGame(const char *filedata, bool autodetect) {
+    Common::String game_id;
+    Common::String engine_id;
+    Common::String data = filedata;
+    int res = TEST_GAME_KO_NOT_FOUND;
+
+    PluginManager::instance().init();
+    PluginManager::instance().loadAllPlugins();
+    PluginManager::instance().loadDetectionPlugin();
+
+    if (autodetect) {
+      Common::FSNode dir(data);
+      Common::FSList files;
+      dir.getChildren(files, Common::FSNode::kListAll);
+
+      DetectionResults detectionResults = EngineMan.detectGames(files);
+      if (!detectionResults.listRecognizedGames().empty()) {
+        res = TEST_GAME_OK_ID_AUTODETECTED;
+      }
+
+    } else {
+
+      ConfMan.loadDefaultConfigFile(getDefaultConfigFileName().c_str());
+      if (ConfMan.hasGameDomain(data)) {
+        res = TEST_GAME_OK_TARGET_FOUND;
+      } else {
+        parseGameName(data, engine_id, game_id);
+
+        QualifiedGameList games =
+            EngineMan.findGamesMatching(engine_id, game_id);
+        if (games.size() == 1) {
+          res = TEST_GAME_OK_ID_FOUND;
+        } else if (games.size() > 1) {
+          res = TEST_GAME_KO_MULTIPLE_RESULTS;
+        }
+      }
+    }
+
+    PluginManager::instance().unloadDetectionPlugin();
+    PluginManager::instance().unloadAllPlugins();
+    PluginManager::destroy();
+    return res;
+  }
+
+  void Quit() {
     Common::Event ev;
     ev.type = Common::EVENT_QUIT;
+    dynamic_cast<OSystem_RETRO *>(g_system)->getEventManager()->pushEvent(ev);
+  }
+
+  void Reset() {
+    Common::Event ev;
+    ev.type = Common::EVENT_RETURN_TO_LAUNCHER;
     dynamic_cast<OSystem_RETRO *>(g_system)->getEventManager()->pushEvent(ev);
   }
 };
@@ -1287,7 +1355,11 @@ void retroProcessMouse(retro_input_state_t aCallback, int device,
       analog_response_is_quadratic, analog_deadzone, mouse_speed);
 }
 
-void retroPostQuit() { dynamic_cast<OSystem_RETRO *>(g_system)->postQuit(); }
+void retroQuit() { dynamic_cast<OSystem_RETRO *>(g_system)->Quit(); }
+
+int retroTestGame(const char *game_id, bool autodetect) {
+  return dynamic_cast<OSystem_RETRO *>(g_system)->TestGame(game_id, autodetect);
+}
 
 void retroSetSystemDir(const char *aPath) {
   s_systemDir = Common::String(aPath ? aPath : ".");
@@ -1302,3 +1374,5 @@ void retroKeyEvent(bool down, unsigned keycode, uint32_t character,
   dynamic_cast<OSystem_RETRO *>(g_system)->processKeyEvent(
       down, keycode, character, key_modifiers);
 }
+
+void retroReset() { dynamic_cast<OSystem_RETRO *>(g_system)->Reset(); }

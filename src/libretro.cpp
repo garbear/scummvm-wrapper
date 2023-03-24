@@ -1,12 +1,35 @@
+/* ScummVM - Graphic Adventure Engine
+ *
+ * ScummVM is the legal property of its developers, whose names
+ * are too numerous to list here. Please refer to the COPYRIGHT
+ * file distributed with this source distribution.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 
-#include "libretro.h"
 #include "audio/mixer_intern.h"
 #include "base/main.h"
+#include "common/fs.h"
 #include "common/scummsys.h"
+#include "common/str.h"
+#include "graphics/surface.h"
 #include "os.h"
-#include "surface.libretro.h"
-#include <libco.h>
+#include "streams/file_stream.h"
+#include <libretro.h>
 #ifdef _WIN32
 #include <direct.h>
 #else
@@ -19,7 +42,6 @@
  */
 #include <libgen.h>
 #endif
-#include <string.h>
 
 /**
  * Include base/internal_version.h to allow access to SCUMMVM_VERSION.
@@ -28,8 +50,8 @@
 #define INCLUDED_FROM_BASE_VERSION_CPP
 #include "base/internal_version.h"
 
-#include "libretro_core_options.h"
-#include "retro_emu_thread.h"
+#include "libretro-core-options.h"
+#include "libretro-threads.h"
 
 retro_log_printf_t log_cb = NULL;
 static retro_video_refresh_t video_cb = NULL;
@@ -73,37 +95,6 @@ void retro_set_environment(retro_environment_t cb) {
   libretro_set_core_options(environ_cb);
 }
 
-#if defined(USE_LIBCO)
-bool FRONTENDwantsExit;
-bool EMULATORexited;
-
-cothread_t mainThread;
-cothread_t emuThread;
-
-void retro_leave_thread(void) { co_switch(mainThread); }
-
-static void retro_wrap_emulator(void) {
-  g_system = retroBuildOS(speed_hack_is_enabled);
-
-  static const char *argv[20];
-  for (int i = 0; i < cmd_params_num; i++)
-    argv[i] = cmd_params[i];
-
-  scummvm_main(cmd_params_num, argv);
-  EMULATORexited = true;
-
-  // NOTE: Deleting g_system here will crash...
-
-  /* Were done here, shutdown on the main thread */
-  while (true) {
-    co_switch(mainThread);
-    /* Dead emulator, but libco says not to return */
-    if (log_cb)
-      log_cb(RETRO_LOG_ERROR, "Running a dead emulator.\n");
-  }
-}
-#endif
-
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
 
 void retro_get_system_info(struct retro_system_info *info) {
@@ -115,7 +106,7 @@ void retro_get_system_info(struct retro_system_info *info) {
 #else
 #define __GIT_VERSION ""
 #endif
-  info->library_version = __GIT_VERSION;
+  info->library_version = SCUMMVM_VERSION;
   info->valid_extensions = "scummvm";
   info->need_fullpath = true;
   info->block_extract = false;
@@ -269,49 +260,10 @@ bool retro_load_game(const struct retro_game_info *game) {
   const char *sysdir;
   const char *savedir;
 
-  cmd_params_num = 1;
-  strcpy(cmd_params[0], "scummvm\0");
-
   update_variables();
 
-  if (game) {
-    // Retrieve the game path.
-    char *path = strdup(game->path);
-    char *gamedir = dirname(path);
-    char buffer[400];
-
-    // See if we are loading a .scummvm file.
-    if (strstr(game->path, ".scummvm") != NULL) {
-      // Open the file.
-      FILE *gamefile = fopen(game->path, "r");
-      if (gamefile == NULL) {
-        log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to load given game file.\n");
-        free(path);
-        return false;
-      }
-
-      // Load the file data.
-      char filedata[400];
-      if (fgets(filedata, 400, gamefile) == NULL) {
-        fclose(gamefile);
-        log_cb(RETRO_LOG_ERROR,
-               "[scummvm] Failed to load contents of game file.\n");
-        free(path);
-        return false;
-      }
-
-      // Create a command line parameters using -p and the game name.
-      sprintf(buffer, "-p \"%s\" %s", gamedir, filedata);
-      fclose(gamefile);
-      parse_command_params(buffer);
-    } else {
-      // Use auto-detect to launch the game from the given directory.
-      sprintf(buffer, "-p \"%s\" --auto-detect", gamedir);
-      parse_command_params(buffer);
-    }
-
-    free(path);
-  }
+  cmd_params_num = 1;
+  strcpy(cmd_params[0], "scummvm\0");
 
   struct retro_input_descriptor desc[] = {
       {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,
@@ -354,13 +306,12 @@ bool retro_load_game(const struct retro_game_info *game) {
 
   /* Get color mode: 32 first as VGA has 6 bits per pixel */
 #if 0
-   RDOSGFXcolorMode = RETRO_PIXEL_FORMAT_XRGB8888;
-   if(!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &RDOSGFXcolorMode))
-   {
-      RDOSGFXcolorMode = RETRO_PIXEL_FORMAT_RGB565;
-      if(!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &RDOSGFXcolorMode))
-         RDOSGFXcolorMode = RETRO_PIXEL_FORMAT_0RGB1555;
-   }
+	RDOSGFXcolorMode = RETRO_PIXEL_FORMAT_XRGB8888;
+	if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &RDOSGFXcolorMode)) {
+		RDOSGFXcolorMode = RETRO_PIXEL_FORMAT_RGB565;
+		if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &RDOSGFXcolorMode))
+			RDOSGFXcolorMode = RETRO_PIXEL_FORMAT_0RGB1555;
+	}
 #endif
 
 #ifdef FRONTEND_SUPPORTS_RGB565
@@ -391,25 +342,126 @@ bool retro_load_game(const struct retro_game_info *game) {
     retroSetSaveDir(".");
   }
 
-#if defined(USE_LIBCO)
-  if (!emuThread && !mainThread) {
-    mainThread = co_active();
-    emuThread = co_create(65536 * sizeof(void *), retro_wrap_emulator);
-  }
-#else
   g_system = retroBuildOS(speed_hack_is_enabled);
+
   if (!g_system) {
     if (log_cb)
       log_cb(RETRO_LOG_ERROR,
              "[scummvm] Failed to initialize platform driver.\n");
     return false;
   }
-  if (!retro_init_emu_thread())
+
+  if (game) {
+    // Retrieve the game path.
+    Common::FSNode detect_target = Common::FSNode(game->path);
+    Common::FSNode parent_dir = detect_target.getParent();
+    char target_id[400] = {0};
+    char buffer[400];
+    int test_game_status = TEST_GAME_KO_NOT_FOUND;
+
+    struct retro_message_ext retro_msg;
+    retro_msg.type = RETRO_MESSAGE_TYPE_NOTIFICATION;
+    retro_msg.target = RETRO_MESSAGE_TARGET_OSD;
+    retro_msg.duration = 3000;
+    retro_msg.msg = "";
+
+    const char *target_file_ext = ".scummvm";
+    int target_file_ext_pos = strlen(game->path) - strlen(target_file_ext);
+
+    // See if we are loading a .scummvm file.
+    if (!(target_file_ext_pos < 0) &&
+        strstr(game->path + target_file_ext_pos, target_file_ext) != NULL) {
+      // Open the file.
+      RFILE *gamefile = filestream_open(game->path, RETRO_VFS_FILE_ACCESS_READ,
+                                        RETRO_VFS_FILE_ACCESS_HINT_NONE);
+      if (!gamefile) {
+        log_cb(RETRO_LOG_ERROR,
+               "[scummvm] Failed to load given game file '%s'.\n", game->path);
+        return false;
+      }
+
+      // Load the file data.
+      if (filestream_gets(gamefile, target_id, sizeof(target_id)) == NULL) {
+        filestream_close(gamefile);
+        log_cb(RETRO_LOG_ERROR,
+               "[scummvm] Failed to load contents of game file '%s'.\n",
+               game->path);
+        return false;
+      }
+      filestream_close(gamefile);
+
+      Common::String tmp = target_id;
+      tmp.trim();
+      strcpy(target_id, tmp.c_str());
+
+      if (strlen(target_id) == 0) {
+        log_cb(RETRO_LOG_ERROR,
+               "[scummvm] Game file '%s' does not contain any target id.\n",
+               game->path);
+        return false;
+      }
+
+      test_game_status = retroTestGame(target_id, false);
+    } else {
+      if (detect_target.isDirectory()) {
+        parent_dir = detect_target;
+      } else {
+        // If this node has no parent node, then it returns a duplicate of this
+        // node.
+        if (detect_target.getPath().equals(parent_dir.getPath())) {
+          log_cb(RETRO_LOG_ERROR,
+                 "[scummvm] Autodetect not possible. No parent directory "
+                 "detected in '%s'.\n",
+                 game->path);
+          return false;
+        }
+      }
+
+      test_game_status = retroTestGame(parent_dir.getPath().c_str(), true);
+    }
+
+    // Preliminary game scan results
+    switch (test_game_status) {
+    case TEST_GAME_OK_ID_FOUND:
+      sprintf(buffer, "-p \"%s\" %s", parent_dir.getPath().c_str(), target_id);
+      log_cb(RETRO_LOG_DEBUG, "[scummvm] launch via target id and game dir\n");
+      break;
+    case TEST_GAME_OK_TARGET_FOUND:
+      sprintf(buffer, "%s", target_id);
+      log_cb(RETRO_LOG_DEBUG,
+             "[scummvm] launch via target id and scummvm.ini\n");
+      break;
+    case TEST_GAME_OK_ID_AUTODETECTED:
+      sprintf(buffer, "-p \"%s\" --auto-detect", parent_dir.getPath().c_str());
+      log_cb(RETRO_LOG_DEBUG, "[scummvm] launch via autodetect\n");
+      break;
+    case TEST_GAME_KO_MULTIPLE_RESULTS:
+      log_cb(RETRO_LOG_WARN,
+             "[scummvm] Multiple targets found for '%s' in scummvm.ini\n",
+             target_id);
+      retro_msg.msg = "Multiple targets found";
+      break;
+    case TEST_GAME_KO_NOT_FOUND:
+    default:
+      log_cb(RETRO_LOG_WARN,
+             "[scummvm] Game not found. Check path and content of '%s'\n",
+             game->path);
+      retro_msg.msg = "Game not found";
+    }
+
+    if (retro_msg.msg[0] != '\0') {
+      environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE_EXT, &retro_msg);
+    } else {
+      parse_command_params(buffer);
+    }
+  }
+
+  if (!retro_init_emu_thread()) {
     if (log_cb)
       log_cb(RETRO_LOG_ERROR,
              "[scummvm] Failed to initialize emulation thread!\n");
-#endif
-
+    return false;
+  }
   return true;
 }
 
@@ -420,42 +472,30 @@ bool retro_load_game_special(unsigned game_type,
 }
 
 void retro_run(void) {
-#if defined(USE_LIBCO)
-  if (!emuThread) {
+  if (retro_emu_thread_exited())
+    retro_deinit_emu_thread();
+
+  if (!retro_emu_thread_initialized()) {
     environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, NULL);
     return;
   }
-#else
-  if (!retro_is_emu_thread_initialized() || retro_emu_thread_exited()) {
-    environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, NULL);
-    return;
-  }
-#endif
 
   bool updated = false;
   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated)
     update_variables();
 
+  retro_switch_to_emu_thread();
   /* Mouse */
   if (g_system) {
     poll_cb();
     retroProcessMouse(input_cb, retro_device, gampad_cursor_speed,
                       gamepad_acceleration_time, analog_response_is_quadratic,
                       analog_deadzone, mouse_speed);
-  }
 
-  /* Run emu */
-#if defined(USE_LIBCO)
-  co_switch(emuThread);
-#else
-  retro_switch_thread();
-#endif
-
-  if (g_system) {
     /* Upload video: TODO: Check the CANDUPE env value */
     const Graphics::Surface &screen = getScreen();
 
-    video_cb(screen.pixels, screen.w, screen.h, screen.pitch);
+    video_cb(screen.getPixels(), screen.w, screen.h, screen.pitch);
 
     /* Upload audio */
     static uint32 buf[800];
@@ -475,46 +515,25 @@ void retro_run(void) {
 #endif
       audio_batch_cb((int16_t *)buf, count);
   }
-
-#if defined(USE_LIBCO)
-  if (EMULATORexited) {
-    co_delete(emuThread);
-    emuThread = 0;
-  }
-#endif
 }
 
 void retro_unload_game(void) {
-#if defined(USE_LIBCO)
-  if (!emuThread)
+  if (!retro_emu_thread_initialized())
     return;
-
-  FRONTENDwantsExit = true;
-  while (!EMULATORexited) {
-    retroPostQuit();
-    co_switch(emuThread);
-  }
-
-  co_delete(emuThread);
-  emuThread = 0;
-#else
-  if (!retro_is_emu_thread_initialized())
-    return;
-
   while (!retro_emu_thread_exited()) {
-    retroPostQuit();
-    retro_switch_thread();
+    retroQuit();
+    retro_switch_to_emu_thread();
   }
-
-  retro_join_emu_thread();
   retro_deinit_emu_thread();
-#endif
+  // g_system->destroy(); //TODO: This call causes "pure virtual method called"
+  // after frontend "Unloading core symbols". Check if needed at all.
 }
+
+void retro_reset(void) { retroReset(); }
 
 // Stubs
 void *retro_get_memory_data(unsigned type) { return 0; }
 size_t retro_get_memory_size(unsigned type) { return 0; }
-void retro_reset(void) {}
 size_t retro_serialize_size(void) { return 0; }
 bool retro_serialize(void *data, size_t size) { return false; }
 bool retro_unserialize(const void *data, size_t size) { return false; }
@@ -525,28 +544,29 @@ unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
 
 #if (defined(GEKKO) && !defined(WIIU)) || defined(__CELLOS_LV2__)
 int access(const char *path, int amode) {
-  FILE *f;
-  const char *mode;
+  RFILE *f;
+  int mode;
 
   switch (amode) {
   // we don't really care if a file exists but isn't readable
   case F_OK:
   case R_OK:
-    mode = "r";
+    mode = RETRO_VFS_FILE_ACCESS_READ;
     break;
 
   case W_OK:
-    mode = "r+";
+    mode = RETRO_VFS_FILE_ACCESS_UPDATE_EXISTING;
     break;
 
   default:
     return -1;
   }
 
-  f = fopen(path, mode);
+  f = filestream_open(path, RETRO_VFS_FILE_ACCESS_READ,
+                      RETRO_VFS_FILE_ACCESS_HINT_NONE);
 
   if (f) {
-    fclose(f);
+    filestream_close(f);
     return 0;
   }
 
